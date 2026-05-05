@@ -28,7 +28,7 @@ import (
 // TaggedUrn represents a tagged URN using flat, ordered tags with a configurable prefix.
 //
 // Examples:
-//   - cap:op=generate;ext=pdf;out=binary;target=thumbnail
+//   - cap:generate;ext=pdf;out=binary;target=thumbnail
 //   - cap:format=*;debug=!  (format required, debug forbidden)
 //   - myapp:key="Value With Spaces"
 type TaggedUrn struct {

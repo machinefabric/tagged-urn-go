@@ -33,12 +33,12 @@ import (
 
 func main() {
     // Parse a URN
-    urn, err := taggedurn.NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+    urn, err := taggedurn.NewTaggedUrnFromString("cap:generate;ext=pdf")
     if err != nil {
         log.Fatal(err)
     }
     fmt.Println("Operation:", urn.GetTag("op"))  // "generate"
-    fmt.Println("Canonical:", urn.ToString())     // "cap:ext=pdf;op=generate"
+    fmt.Println("Canonical:", urn.ToString())     // "cap:ext=pdf;generate"
 
     // Build a URN
     built := taggedurn.NewTaggedUrnBuilder("cap").
@@ -47,7 +47,7 @@ func main() {
         Build()
 
     // Check matching
-    pattern, _ := taggedurn.NewTaggedUrnFromString("cap:op=generate")
+    pattern, _ := taggedurn.NewTaggedUrnFromString("cap:generate")
     conforms, err := urn.ConformsTo(pattern)
     if err != nil {
         log.Fatal(err)

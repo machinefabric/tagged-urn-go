@@ -9,7 +9,7 @@ import (
 )
 
 func TestTaggedUrnCreation(t *testing.T) {
-	taggedUrn, err := NewTaggedUrnFromString("cap:op=transform;format=json;data_processing")
+	taggedUrn, err := NewTaggedUrnFromString("cap:transform;format=json;data_processing")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, taggedUrn)
@@ -30,22 +30,22 @@ func TestTaggedUrnCreation(t *testing.T) {
 }
 
 func TestCustomPrefix(t *testing.T) {
-	urn, err := NewTaggedUrnFromString("myapp:op=generate;ext=pdf")
+	urn, err := NewTaggedUrnFromString("myapp:generate;ext=pdf")
 	require.NoError(t, err)
 
 	assert.Equal(t, "myapp", urn.GetPrefix())
 	op, exists := urn.GetTag("op")
 	assert.True(t, exists)
 	assert.Equal(t, "generate", op)
-	assert.Equal(t, "myapp:ext=pdf;op=generate", urn.ToString())
+	assert.Equal(t, "myapp:ext=pdf;generate", urn.ToString())
 }
 
 func TestPrefixCaseInsensitive(t *testing.T) {
-	urn1, err := NewTaggedUrnFromString("CAP:op=test")
+	urn1, err := NewTaggedUrnFromString("CAP:test")
 	require.NoError(t, err)
-	urn2, err := NewTaggedUrnFromString("cap:op=test")
+	urn2, err := NewTaggedUrnFromString("cap:test")
 	require.NoError(t, err)
-	urn3, err := NewTaggedUrnFromString("Cap:op=test")
+	urn3, err := NewTaggedUrnFromString("Cap:test")
 	require.NoError(t, err)
 
 	assert.Equal(t, "cap", urn1.GetPrefix())
@@ -56,9 +56,9 @@ func TestPrefixCaseInsensitive(t *testing.T) {
 }
 
 func TestPrefixMismatchError(t *testing.T) {
-	urn1, err := NewTaggedUrnFromString("cap:op=test")
+	urn1, err := NewTaggedUrnFromString("cap:test")
 	require.NoError(t, err)
-	urn2, err := NewTaggedUrnFromString("myapp:op=test")
+	urn2, err := NewTaggedUrnFromString("myapp:test")
 	require.NoError(t, err)
 
 	_, err = urn1.ConformsTo(urn2)
@@ -79,28 +79,28 @@ func TestBuilderWithPrefix(t *testing.T) {
 }
 
 func TestCanonicalStringFormat(t *testing.T) {
-	taggedUrn, err := NewTaggedUrnFromString("cap:op=generate;target=thumbnail;ext=pdf")
+	taggedUrn, err := NewTaggedUrnFromString("cap:generate;target=thumbnail;ext=pdf")
 	require.NoError(t, err)
 
 	// Should be sorted alphabetically and have no trailing semicolon in canonical form
-	assert.Equal(t, "cap:ext=pdf;op=generate;target=thumbnail", taggedUrn.ToString())
+	assert.Equal(t, "cap:ext=pdf;generate;target=thumbnail", taggedUrn.ToString())
 }
 
 func TestPrefixRequired(t *testing.T) {
 	// Missing prefix should fail
-	taggedUrn, err := NewTaggedUrnFromString("op=generate;ext=pdf")
+	taggedUrn, err := NewTaggedUrnFromString("generate;ext=pdf")
 	assert.Nil(t, taggedUrn)
 	assert.Error(t, err)
 	assert.Equal(t, ErrorMissingPrefix, err.(*TaggedUrnError).Code)
 
 	// Empty prefix should fail
-	taggedUrn, err = NewTaggedUrnFromString(":op=generate")
+	taggedUrn, err = NewTaggedUrnFromString(":generate")
 	assert.Nil(t, taggedUrn)
 	assert.Error(t, err)
 	assert.Equal(t, ErrorEmptyPrefix, err.(*TaggedUrnError).Code)
 
 	// Valid prefix should work
-	taggedUrn, err = NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	taggedUrn, err = NewTaggedUrnFromString("cap:generate;ext=pdf")
 	assert.NoError(t, err)
 	assert.NotNil(t, taggedUrn)
 	op, exists := taggedUrn.GetTag("op")
@@ -108,7 +108,7 @@ func TestPrefixRequired(t *testing.T) {
 	assert.Equal(t, "generate", op)
 
 	// Case-insensitive prefix
-	taggedUrn, err = NewTaggedUrnFromString("CAP:op=generate")
+	taggedUrn, err = NewTaggedUrnFromString("CAP:generate")
 	assert.NoError(t, err)
 	op, exists = taggedUrn.GetTag("op")
 	assert.True(t, exists)
@@ -117,10 +117,10 @@ func TestPrefixRequired(t *testing.T) {
 
 func TestTrailingSemicolonEquivalence(t *testing.T) {
 	// Both with and without trailing semicolon should be equivalent
-	urn1, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	urn1, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
-	urn2, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf;")
+	urn2, err := NewTaggedUrnFromString("cap:generate;ext=pdf;")
 	require.NoError(t, err)
 
 	// They should be equal
@@ -171,18 +171,18 @@ func TestInvalidCharacters(t *testing.T) {
 }
 
 func TestTagMatching(t *testing.T) {
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf;target=thumbnail")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;target=thumbnail")
 	require.NoError(t, err)
 
 	// Exact match
-	request1, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf;target=thumbnail")
+	request1, err := NewTaggedUrnFromString("cap:generate;ext=pdf;target=thumbnail")
 	require.NoError(t, err)
 	matches, err := urn.ConformsTo(request1)
 	require.NoError(t, err)
 	assert.True(t, matches)
 
 	// Subset match
-	request2, err := NewTaggedUrnFromString("cap:op=generate")
+	request2, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 	matches, err = urn.ConformsTo(request2)
 	require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestTagMatching(t *testing.T) {
 	assert.True(t, matches)
 
 	// No match - conflicting value
-	request4, err := NewTaggedUrnFromString("cap:op=extract")
+	request4, err := NewTaggedUrnFromString("cap:extract")
 	require.NoError(t, err)
 	matches, err = urn.ConformsTo(request4)
 	require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestMissingTagHandling(t *testing.T) {
 	// NEW SEMANTICS: Missing tag in instance means the tag doesn't exist.
 	// Pattern constraints must be satisfied by instance.
 
-	instance, err := NewTaggedUrnFromString("cap:op=generate")
+	instance, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	// Pattern with tag that instance doesn't have: NO MATCH
@@ -220,9 +220,9 @@ func TestMissingTagHandling(t *testing.T) {
 
 	// Pattern missing tag = no constraint: MATCH
 	// Instance has op=generate, pattern has no constraint on op
-	instance2, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	instance2, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
-	pattern2, err := NewTaggedUrnFromString("cap:op=generate")
+	pattern2, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 	matches, err = instance2.ConformsTo(pattern2)
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestSpecificity(t *testing.T) {
 	urn1, err := NewTaggedUrnFromString("cap:op=*") // * = 2 points
 	require.NoError(t, err)
 
-	urn2, err := NewTaggedUrnFromString("cap:op=generate") // exact = 3 points
+	urn2, err := NewTaggedUrnFromString("cap:generate") // exact = 3 points
 	require.NoError(t, err)
 
 	urn3, err := NewTaggedUrnFromString("cap:op=*;ext=pdf") // * + exact = 2 + 3 = 5 points
@@ -295,10 +295,10 @@ func TestSpecificity(t *testing.T) {
 func TestCompatibility(t *testing.T) {
 	// TEST526: Compatibility now uses directional Accepts
 	// General pattern (fewer tags) accepts specific instance (more tags)
-	general, err := NewTaggedUrnFromString("cap:op=generate")
+	general, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
-	specific, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	specific, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	// General pattern accepts specific instance (missing tag = no constraint)
@@ -312,7 +312,7 @@ func TestCompatibility(t *testing.T) {
 	assert.False(t, accepts)
 
 	// Different values: neither direction accepts
-	different, err := NewTaggedUrnFromString("cap:op=extract;ext=pdf")
+	different, err := NewTaggedUrnFromString("cap:extract;ext=pdf")
 	require.NoError(t, err)
 
 	accepts, err = specific.Accepts(different)
@@ -325,7 +325,7 @@ func TestCompatibility(t *testing.T) {
 }
 
 func TestConvenienceMethods(t *testing.T) {
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf;output=binary;target=thumbnail")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;output=binary;target=thumbnail")
 	require.NoError(t, err)
 
 	op, exists := urn.GetTag("op")
@@ -364,27 +364,27 @@ func TestBuilder(t *testing.T) {
 }
 
 func TestWithTag(t *testing.T) {
-	original, err := NewTaggedUrnFromString("cap:op=generate")
+	original, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	modified := original.WithTag("ext", "pdf")
 
-	assert.Equal(t, "cap:ext=pdf;op=generate", modified.ToString())
+	assert.Equal(t, "cap:ext=pdf;generate", modified.ToString())
 
 	// Original should be unchanged
-	assert.Equal(t, "cap:op=generate", original.ToString())
+	assert.Equal(t, "cap:generate", original.ToString())
 }
 
 func TestWithoutTag(t *testing.T) {
-	original, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	original, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	modified := original.WithoutTag("ext")
 
-	assert.Equal(t, "cap:op=generate", modified.ToString())
+	assert.Equal(t, "cap:generate", modified.ToString())
 
 	// Original should be unchanged
-	assert.Equal(t, "cap:ext=pdf;op=generate", original.ToString())
+	assert.Equal(t, "cap:ext=pdf;generate", original.ToString())
 }
 
 func TestWildcardTag(t *testing.T) {
@@ -411,7 +411,7 @@ func TestWildcardTag(t *testing.T) {
 }
 
 func TestSubset(t *testing.T) {
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf;output=binary;target=thumbnail;")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;output=binary;target=thumbnail;")
 	require.NoError(t, err)
 
 	subset := urn.Subset([]string{"type", "ext"})
@@ -420,7 +420,7 @@ func TestSubset(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	urn1, err := NewTaggedUrnFromString("cap:op=generate")
+	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	urn2, err := NewTaggedUrnFromString("cap:ext=pdf;output=binary")
@@ -429,11 +429,11 @@ func TestMerge(t *testing.T) {
 	merged, err := urn1.Merge(urn2)
 	require.NoError(t, err)
 
-	assert.Equal(t, "cap:ext=pdf;op=generate;output=binary", merged.ToString())
+	assert.Equal(t, "cap:ext=pdf;generate;output=binary", merged.ToString())
 }
 
 func TestMergePrefixMismatch(t *testing.T) {
-	urn1, err := NewTaggedUrnFromString("cap:op=generate")
+	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	urn2, err := NewTaggedUrnFromString("myapp:ext=pdf")
@@ -447,13 +447,13 @@ func TestMergePrefixMismatch(t *testing.T) {
 }
 
 func TestEquality(t *testing.T) {
-	urn1, err := NewTaggedUrnFromString("cap:op=generate")
+	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
-	urn2, err := NewTaggedUrnFromString("cap:op=generate") // different order
+	urn2, err := NewTaggedUrnFromString("cap:generate") // different order
 	require.NoError(t, err)
 
-	urn3, err := NewTaggedUrnFromString("cap:op=generate;image")
+	urn3, err := NewTaggedUrnFromString("cap:generate;image")
 	require.NoError(t, err)
 
 	assert.True(t, urn1.Equals(urn2)) // order doesn't matter
@@ -461,10 +461,10 @@ func TestEquality(t *testing.T) {
 }
 
 func TestEqualityDifferentPrefix(t *testing.T) {
-	urn1, err := NewTaggedUrnFromString("cap:op=generate")
+	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
-	urn2, err := NewTaggedUrnFromString("myapp:op=generate")
+	urn2, err := NewTaggedUrnFromString("myapp:generate")
 	require.NoError(t, err)
 
 	assert.False(t, urn1.Equals(urn2))
@@ -479,15 +479,15 @@ func TestUrnMatcher(t *testing.T) {
 	require.NoError(t, err)
 	urns = append(urns, urn1)
 
-	urn2, err := NewTaggedUrnFromString("cap:op=generate")
+	urn2, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 	urns = append(urns, urn2)
 
-	urn3, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	urn3, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 	urns = append(urns, urn3)
 
-	request, err := NewTaggedUrnFromString("cap:op=generate")
+	request, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	best, err := matcher.FindBestMatch(urns, request)
@@ -495,7 +495,7 @@ func TestUrnMatcher(t *testing.T) {
 	require.NotNil(t, best)
 
 	// Most specific URN that can handle the request
-	assert.Equal(t, "cap:ext=pdf;op=generate", best.ToString())
+	assert.Equal(t, "cap:ext=pdf;generate", best.ToString())
 }
 
 func TestUrnMatcherPrefixMismatch(t *testing.T) {
@@ -503,11 +503,11 @@ func TestUrnMatcherPrefixMismatch(t *testing.T) {
 
 	urns := []*TaggedUrn{}
 
-	urn1, err := NewTaggedUrnFromString("cap:op=generate")
+	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 	urns = append(urns, urn1)
 
-	request, err := NewTaggedUrnFromString("myapp:op=generate")
+	request, err := NewTaggedUrnFromString("myapp:generate")
 	require.NoError(t, err)
 
 	_, err = matcher.FindBestMatch(urns, request)
@@ -515,7 +515,7 @@ func TestUrnMatcherPrefixMismatch(t *testing.T) {
 }
 
 func TestJSONSerialization(t *testing.T) {
-	original, err := NewTaggedUrnFromString("cap:op=generate")
+	original, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	data, err := json.Marshal(original)
@@ -566,7 +566,7 @@ func TestUnquotedValuesLowercased(t *testing.T) {
 	assert.Equal(t, "generate", op2)
 
 	// Both URNs parse to same lowercase values
-	urn2, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf;target=thumbnail;")
+	urn2, err := NewTaggedUrnFromString("cap:generate;ext=pdf;target=thumbnail;")
 	require.NoError(t, err)
 	assert.Equal(t, urn.ToString(), urn2.ToString())
 	assert.True(t, urn.Equals(urn2))
@@ -718,7 +718,7 @@ func TestSerializationSmartQuoting(t *testing.T) {
 }
 
 func TestRoundTripSimple(t *testing.T) {
-	original := "cap:op=generate;ext=pdf"
+	original := "cap:generate;ext=pdf"
 	urn, err := NewTaggedUrnFromString(original)
 	require.NoError(t, err)
 	serialized := urn.ToString()
@@ -840,7 +840,7 @@ func TestEmptyTaggedUrn(t *testing.T) {
 	// Empty PATTERN matches any INSTANCE (pattern has no constraints)
 	// Empty INSTANCE only matches patterns that have no required tags
 
-	specific, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	specific, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	assert.NoError(t, err)
 
 	// Empty instance vs specific pattern: NO MATCH
@@ -957,9 +957,9 @@ func TestEmptyValueError(t *testing.T) {
 
 func TestMatchingDifferentPrefixesError(t *testing.T) {
 	// URNs with different prefixes should cause an error, not just return false
-	urn1, err := NewTaggedUrnFromString("cap:op=test")
+	urn1, err := NewTaggedUrnFromString("cap:test")
 	require.NoError(t, err)
-	urn2, err := NewTaggedUrnFromString("other:op=test")
+	urn2, err := NewTaggedUrnFromString("other:test")
 	require.NoError(t, err)
 
 	_, err = urn1.ConformsTo(urn2)
@@ -980,13 +980,13 @@ func TestMatchingDifferentPrefixesError(t *testing.T) {
 
 func TestMatchingSemantics_Test1_ExactMatch(t *testing.T) {
 	// Test 1: Exact match
-	// URN:     cap:op=generate;ext=pdf
-	// Request: cap:op=generate;ext=pdf
+	// URN:     cap:generate;ext=pdf
+	// Request: cap:generate;ext=pdf
 	// Result:  MATCH
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
-	request, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	request, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	matches, err := urn.ConformsTo(request)
@@ -997,15 +997,15 @@ func TestMatchingSemantics_Test1_ExactMatch(t *testing.T) {
 func TestMatchingSemantics_Test2_InstanceMissingTag(t *testing.T) {
 	// Test 2: Instance missing tag
 	// Instance: cap:op=generate
-	// Pattern:  cap:op=generate;ext=pdf
+	// Pattern:  cap:generate;ext=pdf
 	// Result:   NO MATCH (pattern requires ext=pdf, instance doesn't have ext)
 	//
 	// NEW SEMANTICS: Missing tag in instance means it doesn't exist.
 	// Pattern K=v requires instance to have K=v.
-	instance, err := NewTaggedUrnFromString("cap:op=generate")
+	instance, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
-	pattern, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	pattern, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	matches, err := instance.ConformsTo(pattern)
@@ -1013,7 +1013,7 @@ func TestMatchingSemantics_Test2_InstanceMissingTag(t *testing.T) {
 	assert.False(t, matches, "Test 2: Instance missing tag should NOT match when pattern requires it")
 
 	// To accept any ext (or missing), use pattern with ext=?
-	patternOptional, err := NewTaggedUrnFromString("cap:op=generate;ext=?")
+	patternOptional, err := NewTaggedUrnFromString("cap:generate;ext=?")
 	require.NoError(t, err)
 	matches, err = instance.ConformsTo(patternOptional)
 	require.NoError(t, err)
@@ -1022,13 +1022,13 @@ func TestMatchingSemantics_Test2_InstanceMissingTag(t *testing.T) {
 
 func TestMatchingSemantics_Test3_UrnHasExtraTag(t *testing.T) {
 	// Test 3: URN has extra tag
-	// URN:     cap:op=generate;ext=pdf;version=2
-	// Request: cap:op=generate;ext=pdf
+	// URN:     cap:generate;ext=pdf;version=2
+	// Request: cap:generate;ext=pdf
 	// Result:  MATCH (request doesn't constrain version)
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf;version=2")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;version=2")
 	require.NoError(t, err)
 
-	request, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	request, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	matches, err := urn.ConformsTo(request)
@@ -1038,13 +1038,13 @@ func TestMatchingSemantics_Test3_UrnHasExtraTag(t *testing.T) {
 
 func TestMatchingSemantics_Test4_RequestHasWildcard(t *testing.T) {
 	// Test 4: Request has wildcard
-	// URN:     cap:op=generate;ext=pdf
-	// Request: cap:op=generate;ext=*
+	// URN:     cap:generate;ext=pdf
+	// Request: cap:generate;ext=*
 	// Result:  MATCH (request accepts any ext)
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
-	request, err := NewTaggedUrnFromString("cap:op=generate;ext=*")
+	request, err := NewTaggedUrnFromString("cap:generate;ext=*")
 	require.NoError(t, err)
 
 	matches, err := urn.ConformsTo(request)
@@ -1054,13 +1054,13 @@ func TestMatchingSemantics_Test4_RequestHasWildcard(t *testing.T) {
 
 func TestMatchingSemantics_Test5_UrnHasWildcard(t *testing.T) {
 	// Test 5: URN has wildcard
-	// URN:     cap:op=generate;ext=*
-	// Request: cap:op=generate;ext=pdf
+	// URN:     cap:generate;ext=*
+	// Request: cap:generate;ext=pdf
 	// Result:  MATCH (URN handles any ext)
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=*")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=*")
 	require.NoError(t, err)
 
-	request, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	request, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	matches, err := urn.ConformsTo(request)
@@ -1070,13 +1070,13 @@ func TestMatchingSemantics_Test5_UrnHasWildcard(t *testing.T) {
 
 func TestMatchingSemantics_Test6_ValueMismatch(t *testing.T) {
 	// Test 6: Value mismatch
-	// URN:     cap:op=generate;ext=pdf
-	// Request: cap:op=generate;ext=docx
+	// URN:     cap:generate;ext=pdf
+	// Request: cap:generate;ext=docx
 	// Result:  NO MATCH
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
-	request, err := NewTaggedUrnFromString("cap:op=generate;ext=docx")
+	request, err := NewTaggedUrnFromString("cap:generate;ext=docx")
 	require.NoError(t, err)
 
 	matches, err := urn.ConformsTo(request)
@@ -1086,15 +1086,15 @@ func TestMatchingSemantics_Test6_ValueMismatch(t *testing.T) {
 
 func TestMatchingSemantics_Test7_PatternHasExtraTag(t *testing.T) {
 	// Test 7: Pattern has extra tag that instance doesn't have
-	// Instance: cap:op=generate_thumbnail;out="media:binary"
-	// Pattern:  cap:op=generate_thumbnail;out="media:binary";ext=wav
+	// Instance: cap:generate-thumbnail;out="media:binary"
+	// Pattern:  cap:generate-thumbnail;out="media:binary";ext=wav
 	// Result:   NO MATCH (pattern requires ext=wav, instance doesn't have ext)
 	//
 	// NEW SEMANTICS: Pattern K=v requires instance to have K=v
-	instance, err := NewTaggedUrnFromString(`cap:op=generate_thumbnail;out="media:binary"`)
+	instance, err := NewTaggedUrnFromString(`cap:generate-thumbnail;out="media:binary"`)
 	require.NoError(t, err)
 
-	pattern, err := NewTaggedUrnFromString(`cap:op=generate_thumbnail;out="media:binary";ext=wav`)
+	pattern, err := NewTaggedUrnFromString(`cap:generate-thumbnail;out="media:binary";ext=wav`)
 	require.NoError(t, err)
 
 	matches, err := instance.ConformsTo(pattern)
@@ -1102,7 +1102,7 @@ func TestMatchingSemantics_Test7_PatternHasExtraTag(t *testing.T) {
 	assert.False(t, matches, "Test 7: Instance missing ext should NOT match when pattern requires ext=wav")
 
 	// Instance vs pattern that doesn't constrain ext: MATCH
-	patternNoExt, err := NewTaggedUrnFromString(`cap:op=generate_thumbnail;out="media:binary"`)
+	patternNoExt, err := NewTaggedUrnFromString(`cap:generate-thumbnail;out="media:binary"`)
 	require.NoError(t, err)
 	matches, err = instance.ConformsTo(patternNoExt)
 	require.NoError(t, err)
@@ -1111,13 +1111,13 @@ func TestMatchingSemantics_Test7_PatternHasExtraTag(t *testing.T) {
 
 func TestMatchingSemantics_Test8_EmptyPatternMatchesAnything(t *testing.T) {
 	// Test 8: Empty PATTERN matches any INSTANCE
-	// Instance: cap:op=generate;ext=pdf
+	// Instance: cap:generate;ext=pdf
 	// Pattern:  cap:
 	// Result:   MATCH (pattern has no constraints)
 	//
 	// NEW SEMANTICS: Empty pattern = no constraints = matches any instance
 	// But empty instance only matches patterns that don't require tags
-	instance, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	instance, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	emptyPattern, err := NewTaggedUrnFromString("cap:")
@@ -1130,7 +1130,7 @@ func TestMatchingSemantics_Test8_EmptyPatternMatchesAnything(t *testing.T) {
 	// Empty instance vs pattern with requirements: NO MATCH
 	emptyInstance, err := NewTaggedUrnFromString("cap:")
 	require.NoError(t, err)
-	pattern, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	pattern, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 	matches, err = emptyInstance.ConformsTo(pattern)
 	require.NoError(t, err)
@@ -1144,7 +1144,7 @@ func TestMatchingSemantics_Test9_CrossDimensionConstraints(t *testing.T) {
 	// Result:   NO MATCH (pattern requires ext=pdf, instance doesn't have ext)
 	//
 	// NEW SEMANTICS: Pattern K=v requires instance to have K=v
-	instance, err := NewTaggedUrnFromString("cap:op=generate")
+	instance, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	pattern, err := NewTaggedUrnFromString("cap:ext=pdf")
@@ -1155,7 +1155,7 @@ func TestMatchingSemantics_Test9_CrossDimensionConstraints(t *testing.T) {
 	assert.False(t, matches, "Test 9: Instance without ext should NOT match pattern requiring ext")
 
 	// Instance with ext vs pattern with different tag only: MATCH
-	instance2, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	instance2, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 	pattern2, err := NewTaggedUrnFromString("cap:ext=pdf")
 	require.NoError(t, err)
@@ -1204,7 +1204,7 @@ func TestValuelessTagParsingMultiple(t *testing.T) {
 
 func TestValuelessTagMixedWithValued(t *testing.T) {
 	// Mix of value-less and valued tags
-	urn, err := NewTaggedUrnFromString("cap:op=generate;optimize;ext=pdf;secure")
+	urn, err := NewTaggedUrnFromString("cap:generate;optimize;ext=pdf;secure")
 	require.NoError(t, err)
 
 	op, exists := urn.GetTag("op")
@@ -1224,12 +1224,12 @@ func TestValuelessTagMixedWithValued(t *testing.T) {
 	assert.Equal(t, "*", secure)
 
 	// Serializes alphabetically
-	assert.Equal(t, "cap:ext=pdf;op=generate;optimize;secure", urn.ToString())
+	assert.Equal(t, "cap:ext=pdf;generate;optimize;secure", urn.ToString())
 }
 
 func TestValuelessTagAtEnd(t *testing.T) {
 	// Value-less tag at the end (no trailing semicolon)
-	urn, err := NewTaggedUrnFromString("cap:op=generate;optimize")
+	urn, err := NewTaggedUrnFromString("cap:generate;optimize")
 	require.NoError(t, err)
 
 	op, exists := urn.GetTag("op")
@@ -1240,7 +1240,7 @@ func TestValuelessTagAtEnd(t *testing.T) {
 	assert.True(t, exists)
 	assert.Equal(t, "*", optimize)
 
-	assert.Equal(t, "cap:op=generate;optimize", urn.ToString())
+	assert.Equal(t, "cap:generate;optimize", urn.ToString())
 }
 
 func TestValuelessTagEquivalenceToWildcard(t *testing.T) {
@@ -1259,14 +1259,14 @@ func TestValuelessTagEquivalenceToWildcard(t *testing.T) {
 
 func TestValuelessTagMatching(t *testing.T) {
 	// Value-less tag (wildcard) matches any value
-	urn, err := NewTaggedUrnFromString("cap:op=generate;ext")
+	urn, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
 
-	requestPdf, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	requestPdf, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
-	requestDocx, err := NewTaggedUrnFromString("cap:op=generate;ext=docx")
+	requestDocx, err := NewTaggedUrnFromString("cap:generate;ext=docx")
 	require.NoError(t, err)
-	requestAny, err := NewTaggedUrnFromString("cap:op=generate;ext=anything")
+	requestAny, err := NewTaggedUrnFromString("cap:generate;ext=anything")
 	require.NoError(t, err)
 
 	matches, err := urn.ConformsTo(requestPdf)
@@ -1284,14 +1284,14 @@ func TestValuelessTagMatching(t *testing.T) {
 
 func TestValuelessTagInPattern(t *testing.T) {
 	// Pattern with value-less tag (K=*) requires instance to have the tag
-	pattern, err := NewTaggedUrnFromString("cap:op=generate;ext")
+	pattern, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
 
-	instancePdf, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	instancePdf, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
-	instanceDocx, err := NewTaggedUrnFromString("cap:op=generate;ext=docx")
+	instanceDocx, err := NewTaggedUrnFromString("cap:generate;ext=docx")
 	require.NoError(t, err)
-	instanceMissing, err := NewTaggedUrnFromString("cap:op=generate")
+	instanceMissing, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
 	// NEW SEMANTICS: K=* (valueless tag) means must-have-any
@@ -1308,7 +1308,7 @@ func TestValuelessTagInPattern(t *testing.T) {
 	assert.False(t, matches) // Missing ext, pattern requires it
 
 	// To accept missing ext, use ? instead
-	patternOptional, err := NewTaggedUrnFromString("cap:op=generate;ext=?")
+	patternOptional, err := NewTaggedUrnFromString("cap:generate;ext=?")
 	require.NoError(t, err)
 	matches, err = instanceMissing.ConformsTo(patternOptional)
 	require.NoError(t, err)
@@ -1319,11 +1319,11 @@ func TestValuelessTagSpecificity(t *testing.T) {
 	// NEW GRADED SPECIFICITY:
 	// K=v (exact): 3, K=* (must-have-any): 2, K=! (must-not): 1, K=? (unspecified): 0
 
-	urn1, err := NewTaggedUrnFromString("cap:op=generate")
+	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
-	urn2, err := NewTaggedUrnFromString("cap:op=generate;optimize") // optimize = *
+	urn2, err := NewTaggedUrnFromString("cap:generate;optimize") // optimize = *
 	require.NoError(t, err)
-	urn3, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	urn3, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
 	assert.Equal(t, 3, urn1.Specificity())  // 1 exact = 3
@@ -1333,7 +1333,7 @@ func TestValuelessTagSpecificity(t *testing.T) {
 
 func TestValuelessTagRoundtrip(t *testing.T) {
 	// Round-trip parsing and serialization
-	original := "cap:ext=pdf;op=generate;optimize;secure"
+	original := "cap:ext=pdf;generate;optimize;secure"
 	urn, err := NewTaggedUrnFromString(original)
 	require.NoError(t, err)
 	serialized := urn.ToString()
@@ -1376,11 +1376,11 @@ func TestEmptyValueStillError(t *testing.T) {
 
 func TestValuelessTagCompatibility(t *testing.T) {
 	// TEST564: Value-less tag (ext=*) accepts any specific value
-	pattern, err := NewTaggedUrnFromString("cap:op=generate;ext")
+	pattern, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
-	instance1, err := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
+	instance1, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
-	instance2, err := NewTaggedUrnFromString("cap:op=generate;ext=docx")
+	instance2, err := NewTaggedUrnFromString("cap:generate;ext=docx")
 	require.NoError(t, err)
 
 	// Pattern with wildcard tag accepts specific instances
@@ -1408,14 +1408,14 @@ func TestValuelessNumericKeyStillRejected(t *testing.T) {
 	assert.Nil(t, urn)
 	assert.Error(t, err)
 
-	urn2, err := NewTaggedUrnFromString("cap:op=generate;456")
+	urn2, err := NewTaggedUrnFromString("cap:generate;456")
 	assert.Nil(t, urn2)
 	assert.Error(t, err)
 }
 
 func TestWhitespaceInInputRejected(t *testing.T) {
 	// Leading whitespace fails hard
-	urn, err := NewTaggedUrnFromString(" cap:op=test")
+	urn, err := NewTaggedUrnFromString(" cap:test")
 	assert.Nil(t, urn)
 	assert.Error(t, err)
 	urnError, ok := err.(*TaggedUrnError)
@@ -1439,7 +1439,7 @@ func TestWhitespaceInInputRejected(t *testing.T) {
 	assert.Equal(t, ErrorWhitespaceInInput, urnError.Code)
 
 	// Tab and newline also count as whitespace
-	urn, err = NewTaggedUrnFromString("\tcap:op=test")
+	urn, err = NewTaggedUrnFromString("\tcap:test")
 	assert.Nil(t, urn)
 	assert.Error(t, err)
 
@@ -1448,7 +1448,7 @@ func TestWhitespaceInInputRejected(t *testing.T) {
 	assert.Error(t, err)
 
 	// Clean input works
-	urn, err = NewTaggedUrnFromString("cap:op=test")
+	urn, err = NewTaggedUrnFromString("cap:test")
 	assert.NoError(t, err)
 	assert.NotNil(t, urn)
 	value, exists := urn.GetTag("op")
@@ -1773,8 +1773,8 @@ func TestSpecificityWithSpecialValues(t *testing.T) {
 
 // TEST578: Equivalent URNs with identical tag sets
 func Test_578_EquivalentIdenticalTags(t *testing.T) {
-	a, _ := NewTaggedUrnFromString("cap:op=generate;ext=pdf")
-	b, _ := NewTaggedUrnFromString("cap:ext=pdf;op=generate") // same tags, different order
+	a, _ := NewTaggedUrnFromString("cap:generate;ext=pdf")
+	b, _ := NewTaggedUrnFromString("cap:ext=pdf;generate") // same tags, different order
 	equiv, err := a.IsEquivalent(b)
 	require.NoError(t, err)
 	assert.True(t, equiv)
@@ -1821,8 +1821,8 @@ func Test_581_IncomparableDifferentBranches(t *testing.T) {
 
 // TEST582: Equivalent implies comparable but not vice versa
 func Test_582_EquivalentImpliesComparable(t *testing.T) {
-	a, _ := NewTaggedUrnFromString("cap:op=test;ext=pdf")
-	b, _ := NewTaggedUrnFromString("cap:op=test;ext=pdf")
+	a, _ := NewTaggedUrnFromString("cap:test;ext=pdf")
+	b, _ := NewTaggedUrnFromString("cap:test;ext=pdf")
 	equiv, err := a.IsEquivalent(b)
 	require.NoError(t, err)
 	assert.True(t, equiv)
@@ -1831,8 +1831,8 @@ func Test_582_EquivalentImpliesComparable(t *testing.T) {
 	assert.True(t, comp)
 
 	// comparable but NOT equivalent
-	general, _ := NewTaggedUrnFromString("cap:op=test")
-	specific, _ := NewTaggedUrnFromString("cap:op=test;ext=pdf")
+	general, _ := NewTaggedUrnFromString("cap:test")
+	specific, _ := NewTaggedUrnFromString("cap:test;ext=pdf")
 	equiv, err = general.IsEquivalent(specific)
 	require.NoError(t, err)
 	assert.False(t, equiv)
@@ -1843,7 +1843,7 @@ func Test_582_EquivalentImpliesComparable(t *testing.T) {
 
 // TEST583: Prefix mismatch returns error for both relations
 func Test_583_PrefixMismatchErrors(t *testing.T) {
-	cap, _ := NewTaggedUrnFromString("cap:op=test")
+	cap, _ := NewTaggedUrnFromString("cap:test")
 	media, _ := NewTaggedUrnFromString("media:")
 	_, err := cap.IsEquivalent(media)
 	assert.Error(t, err)
@@ -2033,7 +2033,7 @@ func Test_593_BuilderWildcards(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	assert.Equal(t, "cap:ext;op=convert;quality", urn.ToString())
+	assert.Equal(t, "cap:ext;convert;quality", urn.ToString())
 	assert.Equal(t, 7, urn.Specificity())
 	val, _ := urn.GetTag("ext")
 	assert.Equal(t, "*", val)
