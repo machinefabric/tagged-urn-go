@@ -997,7 +997,7 @@ func NewTaggedUrnBuilder(prefix string) *TaggedUrnBuilder {
 
 // Tag adds or updates a tag
 // Key is normalized to lowercase; value is preserved as-is
-// Tracks error if value is empty (use SoloTag for wildcard)
+// Tracks error if value is empty (use Marker for wildcard)
 // Error is returned at Build() time
 func (b *TaggedUrnBuilder) Tag(key, value string) *TaggedUrnBuilder {
 	if b.err != nil {
@@ -1014,9 +1014,9 @@ func (b *TaggedUrnBuilder) Tag(key, value string) *TaggedUrnBuilder {
 	return b
 }
 
-// SoloTag adds a tag with wildcard value (*)
+// Marker adds a tag with wildcard value (*)
 // Key is normalized to lowercase
-func (b *TaggedUrnBuilder) SoloTag(key string) *TaggedUrnBuilder {
+func (b *TaggedUrnBuilder) Marker(key string) *TaggedUrnBuilder {
 	b.tags[strings.ToLower(key)] = "*"
 	return b
 }

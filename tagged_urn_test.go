@@ -2028,8 +2028,8 @@ func Test_592_BuilderComplex(t *testing.T) {
 func Test_593_BuilderWildcards(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Tag("op", "convert").
-		SoloTag("ext").
-		SoloTag("quality").
+		Marker("ext").
+		Marker("quality").
 		Build()
 	require.NoError(t, err)
 
@@ -2063,7 +2063,7 @@ func Test_595_BuilderMatchingWithBuiltUrn(t *testing.T) {
 	wildcardPattern, _ := NewTaggedUrnBuilder("cap").
 		Tag("op", "generate").
 		Tag("target", "thumbnail").
-		SoloTag("ext").
+		Marker("ext").
 		Build()
 
 	conforms, err := specificInstance.ConformsTo(generalPattern)
