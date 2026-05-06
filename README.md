@@ -37,12 +37,12 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Println("Operation:", urn.GetTag("op"))  // "generate"
-    fmt.Println("Canonical:", urn.ToString())     // "cap:ext=pdf;generate"
+    fmt.Println("Has generate marker:", urn.HasMarkerTag("generate"))  // true
+    fmt.Println("Canonical:", urn.ToString())                            // "cap:ext=pdf;generate"
 
     // Build a URN
     built := taggedurn.NewTaggedUrnBuilder("cap").
-        Tag("op", "extract").
+        Marker("extract").
         Tag("format", "pdf").
         Build()
 

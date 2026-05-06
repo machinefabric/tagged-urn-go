@@ -407,6 +407,17 @@ func (c *TaggedUrn) HasTag(key, value string) bool {
 	return exists && tagValue == value
 }
 
+// HasMarkerTag checks whether a marker tag (a tag whose value is "*") is
+// present at the given key. Equivalent to HasTag(tagName, "*") but
+// expresses authorial intent: this tag is present as a marker (a
+// wildcard-valued tag that serializes as just the key), not as a
+// key=value pair. Example: "cap:constrained;..." has marker tag
+// "constrained".
+func (c *TaggedUrn) HasMarkerTag(tagName string) bool {
+	tagValue, exists := c.tags[strings.ToLower(tagName)]
+	return exists && tagValue == "*"
+}
+
 // WithTag returns a new tagged URN with an added or updated tag
 // Key is normalized to lowercase; value is preserved as-is
 func (c *TaggedUrn) WithTag(key, value string) *TaggedUrn {

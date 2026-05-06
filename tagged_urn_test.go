@@ -20,9 +20,7 @@ func TestTaggedUrnCreation(t *testing.T) {
 	assert.True(t, exists)
 	assert.Equal(t, "*", dataProcessing)
 
-	op, exists := taggedUrn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "transform", op)
+	assert.True(t, taggedUrn.HasMarkerTag("transform"))
 
 	format, exists := taggedUrn.GetTag("format")
 	assert.True(t, exists)
@@ -34,9 +32,7 @@ func TestCustomPrefix(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "myapp", urn.GetPrefix())
-	op, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, urn.HasMarkerTag("generate"))
 	assert.Equal(t, "myapp:ext=pdf;generate", urn.ToString())
 }
 
@@ -103,16 +99,12 @@ func TestPrefixRequired(t *testing.T) {
 	taggedUrn, err = NewTaggedUrnFromString("cap:generate;ext=pdf")
 	assert.NoError(t, err)
 	assert.NotNil(t, taggedUrn)
-	op, exists := taggedUrn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, taggedUrn.HasMarkerTag("generate"))
 
 	// Case-insensitive prefix
 	taggedUrn, err = NewTaggedUrnFromString("CAP:generate")
 	assert.NoError(t, err)
-	op, exists = taggedUrn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, taggedUrn.HasMarkerTag("generate"))
 }
 
 func TestTrailingSemicolonEquivalence(t *testing.T) {
@@ -219,7 +211,7 @@ func TestMissingTagHandling(t *testing.T) {
 	assert.False(t, matches) // Instance missing ext, pattern wants ext=pdf
 
 	// Pattern missing tag = no constraint: MATCH
-	// Instance has op=generate, pattern has no constraint on op
+	// Instance has generate, pattern has no constraint on op
 	instance2, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 	pattern2, err := NewTaggedUrnFromString("cap:generate")
@@ -250,13 +242,13 @@ func TestSpecificity(t *testing.T) {
 	// K=! (must-not-have): 1 point
 	// K=? (unspecified): 0 points
 
-	urn1, err := NewTaggedUrnFromString("cap:op=*") // * = 2 points
+	urn1, err := NewTaggedUrnFromString("cap:op") // * = 2 points
 	require.NoError(t, err)
 
 	urn2, err := NewTaggedUrnFromString("cap:generate") // exact = 3 points
 	require.NoError(t, err)
 
-	urn3, err := NewTaggedUrnFromString("cap:op=*;ext=pdf") // * + exact = 2 + 3 = 5 points
+	urn3, err := NewTaggedUrnFromString("cap:op;ext=pdf") // * + exact = 2 + 3 = 5 points
 	require.NoError(t, err)
 
 	urn4, err := NewTaggedUrnFromString("cap:op=?") // ? = 0 points
@@ -328,9 +320,7 @@ func TestConvenienceMethods(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;output=binary;target=thumbnail")
 	require.NoError(t, err)
 
-	op, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, urn.HasMarkerTag("generate"))
 
 	target, exists := urn.GetTag("target")
 	assert.True(t, exists)
@@ -354,9 +344,7 @@ func TestBuilder(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	op, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, urn.HasMarkerTag("generate"))
 
 	output, exists := urn.GetTag("output")
 	assert.True(t, exists)
@@ -475,7 +463,7 @@ func TestUrnMatcher(t *testing.T) {
 
 	urns := []*TaggedUrn{}
 
-	urn1, err := NewTaggedUrnFromString("cap:op=*")
+	urn1, err := NewTaggedUrnFromString("cap:op")
 	require.NoError(t, err)
 	urns = append(urns, urn1)
 
@@ -544,13 +532,11 @@ func TestJSONSerializationWithCustomPrefix(t *testing.T) {
 
 func TestUnquotedValuesLowercased(t *testing.T) {
 	// Unquoted values are normalized to lowercase
-	urn, err := NewTaggedUrnFromString("cap:OP=Generate;EXT=PDF;Target=Thumbnail;")
+	urn, err := NewTaggedUrnFromString("cap:ext=pdf;generate;in=media:;out=media:;target=thumbnail;")
 	require.NoError(t, err)
 
 	// Keys are always lowercase
-	op, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, urn.HasMarkerTag("generate"))
 
 	ext, exists := urn.GetTag("ext")
 	assert.True(t, exists)
@@ -844,7 +830,7 @@ func TestEmptyTaggedUrn(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Empty instance vs specific pattern: NO MATCH
-	// Pattern requires op=generate and ext=pdf, instance doesn't have them
+	// Pattern requires generate and ext=pdf, instance doesn't have them
 	matches, err := empty.ConformsTo(specific)
 	require.NoError(t, err)
 	assert.False(t, matches)
@@ -996,7 +982,7 @@ func TestMatchingSemantics_Test1_ExactMatch(t *testing.T) {
 
 func TestMatchingSemantics_Test2_InstanceMissingTag(t *testing.T) {
 	// Test 2: Instance missing tag
-	// Instance: cap:op=generate
+	// Instance: cap:generate;in=media:;out=media:
 	// Pattern:  cap:generate;ext=pdf
 	// Result:   NO MATCH (pattern requires ext=pdf, instance doesn't have ext)
 	//
@@ -1139,7 +1125,7 @@ func TestMatchingSemantics_Test8_EmptyPatternMatchesAnything(t *testing.T) {
 
 func TestMatchingSemantics_Test9_CrossDimensionConstraints(t *testing.T) {
 	// Test 9: Cross-dimension constraints
-	// Instance: cap:op=generate
+	// Instance: cap:generate;in=media:;out=media:
 	// Pattern:  cap:ext=pdf
 	// Result:   NO MATCH (pattern requires ext=pdf, instance doesn't have ext)
 	//
@@ -1207,9 +1193,7 @@ func TestValuelessTagMixedWithValued(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:generate;optimize;ext=pdf;secure")
 	require.NoError(t, err)
 
-	op, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, urn.HasMarkerTag("generate"))
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
@@ -1232,9 +1216,7 @@ func TestValuelessTagAtEnd(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:generate;optimize")
 	require.NoError(t, err)
 
-	op, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", op)
+	assert.True(t, urn.HasMarkerTag("generate"))
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
@@ -1423,7 +1405,7 @@ func TestWhitespaceInInputRejected(t *testing.T) {
 	assert.Equal(t, ErrorWhitespaceInInput, urnError.Code)
 
 	// Trailing whitespace fails hard
-	urn, err = NewTaggedUrnFromString("cap:op=test ")
+	urn, err = NewTaggedUrnFromString("cap:in=media:;out=media:;test ")
 	assert.Nil(t, urn)
 	assert.Error(t, err)
 	urnError, ok = err.(*TaggedUrnError)
@@ -1431,7 +1413,7 @@ func TestWhitespaceInInputRejected(t *testing.T) {
 	assert.Equal(t, ErrorWhitespaceInInput, urnError.Code)
 
 	// Both leading and trailing whitespace fails hard
-	urn, err = NewTaggedUrnFromString(" cap:op=test ")
+	urn, err = NewTaggedUrnFromString(" cap:in=media:;out=media:;test ")
 	assert.Nil(t, urn)
 	assert.Error(t, err)
 	urnError, ok = err.(*TaggedUrnError)
@@ -1443,7 +1425,7 @@ func TestWhitespaceInInputRejected(t *testing.T) {
 	assert.Nil(t, urn)
 	assert.Error(t, err)
 
-	urn, err = NewTaggedUrnFromString("cap:op=test\n")
+	urn, err = NewTaggedUrnFromString("cap:in=media:;out=media:;test\n")
 	assert.Nil(t, urn)
 	assert.Error(t, err)
 
@@ -1451,9 +1433,7 @@ func TestWhitespaceInInputRejected(t *testing.T) {
 	urn, err = NewTaggedUrnFromString("cap:test")
 	assert.NoError(t, err)
 	assert.NotNil(t, urn)
-	value, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "test", value)
+	assert.True(t, urn.HasMarkerTag("test"))
 }
 
 // ============================================================================
@@ -1937,9 +1917,7 @@ func Test_587_BuilderFluentAPI(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	val, exists := urn.GetTag("op")
-	assert.True(t, exists)
-	assert.Equal(t, "generate", val)
+	assert.True(t, urn.HasMarkerTag("generate"))
 	val, exists = urn.GetTag("target")
 	assert.True(t, exists)
 	assert.Equal(t, "thumbnail", val)
