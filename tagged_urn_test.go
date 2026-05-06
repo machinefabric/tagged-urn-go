@@ -1910,7 +1910,7 @@ func Test_586_SpecialValues(t *testing.T) {
 // TEST587: Builder fluent API for tag manipulation
 func Test_587_BuilderFluentAPI(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
-		Tag("op", "generate").
+		Marker("generate").
 		Tag("target", "thumbnail").
 		Tag("format", "pdf").
 		Tag("output", "binary").
@@ -1918,7 +1918,7 @@ func Test_587_BuilderFluentAPI(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, urn.HasMarkerTag("generate"))
-	val, exists = urn.GetTag("target")
+	val, exists := urn.GetTag("target")
 	assert.True(t, exists)
 	assert.Equal(t, "thumbnail", val)
 	val, exists = urn.GetTag("format")
