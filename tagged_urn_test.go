@@ -236,52 +236,46 @@ func TestMissingTagHandling(t *testing.T) {
 }
 
 func TestSpecificity(t *testing.T) {
-	// NEW GRADED SPECIFICITY:
-	// K=v (exact value): 3 points
-	// K=* (must-have-any): 2 points
-	// K=! (must-not-have): 1 point
-	// K=? (unspecified): 0 points
+	// Six-form per-tag specificity ladder:
+	//   ?x        : 0  (no constraint)
+	//   x?=v      : 1  (absent OR not v)
+	//   x (=x=*)  : 2  (must-have-any)
+	//   x!=v      : 3  (present and not v)
+	//   x=v       : 4  (must-have-this-value)
+	//   !x        : 5  (must-not-have)
 
-	urn1, err := NewTaggedUrnFromString("cap:op") // * = 2 points
+	urn1, err := NewTaggedUrnFromString("cap:op") // bare marker x=* -> 2
 	require.NoError(t, err)
 
-	urn2, err := NewTaggedUrnFromString("cap:generate") // exact = 3 points
+	urn2, err := NewTaggedUrnFromString("cap:op=generate") // exact -> 4
 	require.NoError(t, err)
 
-	urn3, err := NewTaggedUrnFromString("cap:op;ext=pdf") // * + exact = 2 + 3 = 5 points
+	urn3, err := NewTaggedUrnFromString("cap:op;ext=pdf") // marker(2) + exact(4) = 6
 	require.NoError(t, err)
 
-	urn4, err := NewTaggedUrnFromString("cap:op=?") // ? = 0 points
+	urn4, err := NewTaggedUrnFromString("cap:?op") // ?x -> 0
 	require.NoError(t, err)
 
-	urn5, err := NewTaggedUrnFromString("cap:op=!") // ! = 1 point
+	urn5, err := NewTaggedUrnFromString("cap:!op") // !x -> 5
 	require.NoError(t, err)
 
-	assert.Equal(t, 2, urn1.Specificity()) // * = 2
-	assert.Equal(t, 3, urn2.Specificity()) // exact = 3
-	assert.Equal(t, 5, urn3.Specificity()) // * + exact = 2 + 3
-	assert.Equal(t, 0, urn4.Specificity()) // ? = 0
-	assert.Equal(t, 1, urn5.Specificity()) // ! = 1
+	urn6, err := NewTaggedUrnFromString("cap:op?=generate") // x?=v -> 1
+	require.NoError(t, err)
 
-	// Specificity tuple for tie-breaking: (exact_count, must_have_any_count, must_not_count)
-	exact, mustHaveAny, mustNot := urn2.SpecificityTuple()
-	assert.Equal(t, 1, exact)
-	assert.Equal(t, 0, mustHaveAny)
-	assert.Equal(t, 0, mustNot)
+	urn7, err := NewTaggedUrnFromString("cap:op!=generate") // x!=v -> 3
+	require.NoError(t, err)
 
-	exact, mustHaveAny, mustNot = urn3.SpecificityTuple()
-	assert.Equal(t, 1, exact)
-	assert.Equal(t, 1, mustHaveAny)
-	assert.Equal(t, 0, mustNot)
-
-	exact, mustHaveAny, mustNot = urn5.SpecificityTuple()
-	assert.Equal(t, 0, exact)
-	assert.Equal(t, 0, mustHaveAny)
-	assert.Equal(t, 1, mustNot)
+	assert.Equal(t, 2, urn1.Specificity()) // x=* = 2
+	assert.Equal(t, 4, urn2.Specificity()) // exact = 4
+	assert.Equal(t, 6, urn3.Specificity()) // 2 + 4
+	assert.Equal(t, 0, urn4.Specificity()) // ?x = 0
+	assert.Equal(t, 5, urn5.Specificity()) // !x = 5
+	assert.Equal(t, 1, urn6.Specificity()) // x?=v = 1
+	assert.Equal(t, 3, urn7.Specificity()) // x!=v = 3
 
 	moreSpecific, err := urn2.IsMoreSpecificThan(urn1)
 	require.NoError(t, err)
-	assert.True(t, moreSpecific) // 3 > 2
+	assert.True(t, moreSpecific) // exact(4) > marker(2)
 }
 
 func TestCompatibility(t *testing.T) {
@@ -337,7 +331,7 @@ func TestConvenienceMethods(t *testing.T) {
 
 func TestBuilder(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
-		Tag("op", "generate").
+		Marker("generate").
 		Tag("target", "thumbnail").
 		Tag("ext", "pdf").
 		Tag("output", "binary").
@@ -531,11 +525,10 @@ func TestJSONSerializationWithCustomPrefix(t *testing.T) {
 }
 
 func TestUnquotedValuesLowercased(t *testing.T) {
-	// Unquoted values are normalized to lowercase
-	urn, err := NewTaggedUrnFromString("cap:ext=pdf;generate;in=media:;out=media:;target=thumbnail;")
+	// Unquoted keys AND values are normalized to lowercase.
+	urn, err := NewTaggedUrnFromString("cap:ext=pdf;generate;target=thumbnail;")
 	require.NoError(t, err)
 
-	// Keys are always lowercase
 	assert.True(t, urn.HasMarkerTag("generate"))
 
 	ext, exists := urn.GetTag("ext")
@@ -546,13 +539,14 @@ func TestUnquotedValuesLowercased(t *testing.T) {
 	assert.True(t, exists)
 	assert.Equal(t, "thumbnail", target)
 
-	// Key lookup is case-insensitive
-	op2, exists := urn.GetTag("OP")
+	// Key lookup is case-insensitive: uppercase variants of `ext`
+	// resolve to the same keyed tag.
+	extUpper, exists := urn.GetTag("EXT")
 	assert.True(t, exists)
-	assert.Equal(t, "generate", op2)
+	assert.Equal(t, "pdf", extUpper)
 
-	// Both URNs parse to same lowercase values
-	urn2, err := NewTaggedUrnFromString("cap:generate;ext=pdf;target=thumbnail;")
+	// Tag order in the source string does not affect canonical form.
+	urn2, err := NewTaggedUrnFromString("cap:target=thumbnail;ext=pdf;generate;")
 	require.NoError(t, err)
 	assert.Equal(t, urn.ToString(), urn2.ToString())
 	assert.True(t, urn.Equals(urn2))
@@ -1298,19 +1292,17 @@ func TestValuelessTagInPattern(t *testing.T) {
 }
 
 func TestValuelessTagSpecificity(t *testing.T) {
-	// NEW GRADED SPECIFICITY:
-	// K=v (exact): 3, K=* (must-have-any): 2, K=! (must-not): 1, K=? (unspecified): 0
-
-	urn1, err := NewTaggedUrnFromString("cap:generate")
+	// Six-form ladder: ?x=0, x?=v=1, x=*=2, x!=v=3, x=v=4, !x=5.
+	urn1, err := NewTaggedUrnFromString("cap:generate") // 1 marker (=*)
 	require.NoError(t, err)
-	urn2, err := NewTaggedUrnFromString("cap:generate;optimize") // optimize = *
+	urn2, err := NewTaggedUrnFromString("cap:generate;optimize") // 2 markers
 	require.NoError(t, err)
-	urn3, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
+	urn3, err := NewTaggedUrnFromString("cap:generate;ext=pdf") // marker + exact
 	require.NoError(t, err)
 
-	assert.Equal(t, 3, urn1.Specificity())  // 1 exact = 3
-	assert.Equal(t, 5, urn2.Specificity())  // 1 exact + 1 * = 3 + 2 = 5
-	assert.Equal(t, 6, urn3.Specificity())  // 2 exact = 3 + 3 = 6
+	assert.Equal(t, 2, urn1.Specificity()) // 1 marker = 2
+	assert.Equal(t, 4, urn2.Specificity()) // 2 markers = 2 + 2 = 4
+	assert.Equal(t, 6, urn3.Specificity()) // 1 marker + 1 exact = 2 + 4 = 6
 }
 
 func TestValuelessTagRoundtrip(t *testing.T) {
@@ -1448,20 +1440,21 @@ func TestUnspecifiedQuestionMarkParsing(t *testing.T) {
 	value, exists := urn.GetTag("ext")
 	assert.True(t, exists)
 	assert.Equal(t, "?", value)
-	// Serializes as key=?
-	assert.Equal(t, "cap:ext=?", urn.ToString())
+	// All three input aliases (?x, x?, x=?) parse to stored value
+	// "?" and serialize as the canonical prefix form `?x`.
+	assert.Equal(t, "cap:?ext", urn.ToString())
 }
 
 func TestMustNotHaveExclamationParsing(t *testing.T) {
-	// ! parses as must-not-have
 	urn, err := NewTaggedUrnFromString("cap:ext=!")
 	require.NoError(t, err)
 
 	value, exists := urn.GetTag("ext")
 	assert.True(t, exists)
 	assert.Equal(t, "!", value)
-	// Serializes as key=!
-	assert.Equal(t, "cap:ext=!", urn.ToString())
+	// All three input aliases (!x, x!, x=!) parse to stored value
+	// "!" and serialize as the canonical prefix form `!x`.
+	assert.Equal(t, "cap:!ext", urn.ToString())
 }
 
 func TestQuestionMarkPatternMatchesAnything(t *testing.T) {
@@ -1707,44 +1700,56 @@ func TestCompatibilityWithSpecialValues(t *testing.T) {
 }
 
 func TestSpecificityWithSpecialValues(t *testing.T) {
-	// Verify graded specificity scoring
-	exact, _ := NewTaggedUrnFromString("cap:a=x;b=y;c=z")        // 3*3 = 9
-	mustHave, _ := NewTaggedUrnFromString("cap:a;b;c")           // 3*2 = 6
-	mustNotUrn, _ := NewTaggedUrnFromString("cap:a=!;b=!;c=!")   // 3*1 = 3
-	unspecified, _ := NewTaggedUrnFromString("cap:a=?;b=?;c=?")  // 3*0 = 0
-	mixed, _ := NewTaggedUrnFromString("cap:a=x;b;c=!;d=?")      // 3+2+1+0 = 6
+	// Six-form ladder: ?x=0, x?=v=1, x=*=2, x!=v=3, x=v=4, !x=5.
+	exact, _ := NewTaggedUrnFromString("cap:a=x;b=y;c=z")    // 3 * 4 = 12
+	mustHave, _ := NewTaggedUrnFromString("cap:a;b;c")       // 3 * 2 = 6
+	mustNotUrn, _ := NewTaggedUrnFromString("cap:!a;!b;!c")  // 3 * 5 = 15
+	unspecified, _ := NewTaggedUrnFromString("cap:?a;?b;?c") // 3 * 0 = 0
+	// mixed: a=x (4) + b (2) + !c (5) + ?d (0) = 11
+	mixed, _ := NewTaggedUrnFromString("cap:!c;?d;a=x;b")
 
-	assert.Equal(t, 9, exact.Specificity())
+	assert.Equal(t, 12, exact.Specificity())
 	assert.Equal(t, 6, mustHave.Specificity())
-	assert.Equal(t, 3, mustNotUrn.Specificity())
+	assert.Equal(t, 15, mustNotUrn.Specificity())
 	assert.Equal(t, 0, unspecified.Specificity())
-	assert.Equal(t, 6, mixed.Specificity())
+	assert.Equal(t, 11, mixed.Specificity())
 
-	// Test specificity tuples
-	e, mha, mn := exact.SpecificityTuple()
+	// Five-tuple counts: (must_not_have, exact, present_not_value,
+	// must_have_any, absent_or_not_value).
+	mn, e, pnv, mha, anv := exact.SpecificityTuple()
+	assert.Equal(t, 0, mn)
 	assert.Equal(t, 3, e)
+	assert.Equal(t, 0, pnv)
 	assert.Equal(t, 0, mha)
-	assert.Equal(t, 0, mn)
+	assert.Equal(t, 0, anv)
 
-	e, mha, mn = mustHave.SpecificityTuple()
+	mn, e, pnv, mha, anv = mustHave.SpecificityTuple()
+	assert.Equal(t, 0, mn)
 	assert.Equal(t, 0, e)
+	assert.Equal(t, 0, pnv)
 	assert.Equal(t, 3, mha)
-	assert.Equal(t, 0, mn)
+	assert.Equal(t, 0, anv)
 
-	e, mha, mn = mustNotUrn.SpecificityTuple()
-	assert.Equal(t, 0, e)
-	assert.Equal(t, 0, mha)
+	mn, e, pnv, mha, anv = mustNotUrn.SpecificityTuple()
 	assert.Equal(t, 3, mn)
-
-	e, mha, mn = unspecified.SpecificityTuple()
 	assert.Equal(t, 0, e)
+	assert.Equal(t, 0, pnv)
 	assert.Equal(t, 0, mha)
-	assert.Equal(t, 0, mn)
+	assert.Equal(t, 0, anv)
 
-	e, mha, mn = mixed.SpecificityTuple()
-	assert.Equal(t, 1, e)
-	assert.Equal(t, 1, mha)
+	mn, e, pnv, mha, anv = unspecified.SpecificityTuple()
+	assert.Equal(t, 0, mn)
+	assert.Equal(t, 0, e)
+	assert.Equal(t, 0, pnv)
+	assert.Equal(t, 0, mha)
+	assert.Equal(t, 0, anv)
+
+	mn, e, pnv, mha, anv = mixed.SpecificityTuple()
 	assert.Equal(t, 1, mn)
+	assert.Equal(t, 1, e)
+	assert.Equal(t, 0, pnv)
+	assert.Equal(t, 1, mha)
+	assert.Equal(t, 0, anv)
 }
 
 // =========================================================================
@@ -1974,14 +1979,15 @@ func Test_591_BuilderSingleTag(t *testing.T) {
 	assert.Equal(t, "cap:type=utility", urn.ToString())
 	val, _ := urn.GetTag("type")
 	assert.Equal(t, "utility", val)
-	assert.Equal(t, 3, urn.Specificity())
+	// Six-form ladder: exact value = 4 points.
+	assert.Equal(t, 4, urn.Specificity())
 }
 
 // TEST592: Builder with complex multi-tag URN
 func Test_592_BuilderComplex(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Tag("type", "media").
-		Tag("op", "transcode").
+		Marker("transcode").
 		Tag("target", "video").
 		Tag("format", "mp4").
 		Tag("codec", "h264").
@@ -1992,27 +1998,29 @@ func Test_592_BuilderComplex(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "media", urn.AllTags()["type"])
-	assert.Equal(t, "transcode", urn.AllTags()["op"])
+	assert.True(t, urn.HasMarkerTag("transcode"))
 	assert.Equal(t, "video", urn.AllTags()["target"])
 	assert.Equal(t, "mp4", urn.AllTags()["format"])
 	assert.Equal(t, "h264", urn.AllTags()["codec"])
 	assert.Equal(t, "1080p", urn.AllTags()["quality"])
 	assert.Equal(t, "30fps", urn.AllTags()["framerate"])
 	assert.Equal(t, "binary", urn.AllTags()["output"])
-	assert.Equal(t, 24, urn.Specificity())
+	// Six-form ladder: 7 exact tags × 4 + 1 marker × 2 = 28 + 2 = 30.
+	assert.Equal(t, 30, urn.Specificity())
 }
 
 // TEST593: Builder with wildcards
 func Test_593_BuilderWildcards(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
-		Tag("op", "convert").
+		Marker("convert").
 		Marker("ext").
 		Marker("quality").
 		Build()
 	require.NoError(t, err)
 
-	assert.Equal(t, "cap:ext;convert;quality", urn.ToString())
-	assert.Equal(t, 7, urn.Specificity())
+	assert.Equal(t, "cap:convert;ext;quality", urn.ToString())
+	// Six-form ladder: 3 markers × 2 = 6.
+	assert.Equal(t, 6, urn.Specificity())
 	val, _ := urn.GetTag("ext")
 	assert.Equal(t, "*", val)
 	val, _ = urn.GetTag("quality")
@@ -2056,9 +2064,10 @@ func Test_595_BuilderMatchingWithBuiltUrn(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, moreSpec)
 
-	assert.Equal(t, 9, specificInstance.Specificity())
-	assert.Equal(t, 3, generalPattern.Specificity())
-	assert.Equal(t, 8, wildcardPattern.Specificity())
+	// Six-form ladder: exact = 4, marker (=*) = 2.
+	assert.Equal(t, 12, specificInstance.Specificity()) // 3 exact × 4 = 12
+	assert.Equal(t, 4, generalPattern.Specificity())    // 1 exact × 4 = 4
+	assert.Equal(t, 10, wildcardPattern.Specificity())  // 2 exact × 4 + 1 * × 2 = 10
 }
 
 // TEST: Builder rejects empty value

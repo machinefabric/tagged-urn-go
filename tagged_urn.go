@@ -62,12 +62,39 @@ const (
 	ErrorWhitespaceInInput     = 12
 )
 
-// Parser states for state machine
+// Parser states for state machine.
+//
+// The parser handles six tag forms — the canonical alphabet of the
+// constraint truth table:
+//
+//	| Authored                | Canonical | Stored value | Score | Reading                                  |
+//	|-------------------------|-----------|--------------|------:|------------------------------------------|
+//	| `?x` ≡ `x?`             | `?x`      | "?"          |     0 | no constraint                            |
+//	| `?x=v` ≡ `x?=v`         | `x?=v`    | "?=v"        |     1 | absent OR (present and not v)            |
+//	| `x` ≡ `x=*`             | `x`       | "*"          |     2 | present with any value                   |
+//	| `!x=v` ≡ `x!=v`         | `x!=v`    | "!=v"        |     3 | present and not v                        |
+//	| `x=v`                   | `x=v`     | "v"          |     4 | present and exactly v (`v ∉ {?, !, *}`)  |
+//	| `!x` ≡ `x!`             | `!x`      | "!"          |     5 | absent (must-not-have)                   |
+//
+// Qualifier `?` or `!` may appear EITHER as a key prefix (`?x`, `!x`,
+// `?x=v`, `!x=v`) OR as an infix immediately before `=` (`x?`, `x!`,
+// `x?=v`, `x!=v`). The two notations are exact aliases.
+//
+// Disallowed (hard parse errors): `?x?`, `?x?=v`, `!x!=v`, `?!x`,
+// `!?x`, `?x=*`, `!x=*`, `?x=?`, `!x=?`, mixed prefix+infix.
 type parseState int
 
 const (
 	stateExpectingKey parseState = iota
+	// After `?` at key position; next character must begin a key.
+	stateAfterPrefixQuestion
+	// After `!` at key position.
+	stateAfterPrefixBang
 	stateInKey
+	// In key, saw `?` after key chars; awaiting `=` (→ infix x?=v)
+	// or `;`/end (→ bare x? ≡ ?x).
+	stateInKeyAfterQuestion
+	stateInKeyAfterBang
 	stateExpectingValue
 	stateInUnquotedValue
 	stateInQuotedValue
@@ -168,6 +195,47 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 	var currentValue strings.Builder
 	chars := []rune(tagsPart)
 	pos := 0
+	// Tracks the qualifier for the tag currently being parsed:
+	//   0    — no qualifier seen yet
+	//   '?'  — `?` qualifier (prefix `?x` or infix `x?=`)
+	//   '!'  — `!` qualifier (prefix `!x` or infix `x!=`)
+	// Reset to 0 on each finishTag.
+	var qualifier rune
+
+	canonicalNoValue := func() string {
+		switch qualifier {
+		case 0:
+			return "*"
+		case '?':
+			return "?"
+		case '!':
+			return "!"
+		}
+		panic(fmt.Sprintf("invalid qualifier rune: %q", qualifier))
+	}
+
+	canonicalizeValue := func() error {
+		if qualifier == 0 {
+			return nil
+		}
+		v := currentValue.String()
+		if v == "*" || v == "?" || v == "!" {
+			return &TaggedUrnError{
+				Code: ErrorInvalidCharacter,
+				Message: fmt.Sprintf(
+					"qualifier '%c' on key '%s' cannot combine with sigil value '%s': "+
+						"use a real value or drop the qualifier",
+					qualifier, currentKey.String(), v),
+			}
+		}
+		var b strings.Builder
+		b.WriteRune(qualifier)
+		b.WriteRune('=')
+		b.WriteString(v)
+		currentValue.Reset()
+		currentValue.WriteString(b.String())
+		return nil
+	}
 
 	finishTag := func() error {
 		key := currentKey.String()
@@ -205,6 +273,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 		tags[key] = value
 		currentKey.Reset()
 		currentValue.Reset()
+		qualifier = 0
 		return nil
 	}
 
@@ -214,9 +283,14 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 		switch state {
 		case stateExpectingKey:
 			if c == ';' {
-				// Empty segment, skip
 				pos++
 				continue
+			} else if c == '?' {
+				qualifier = '?'
+				state = stateAfterPrefixQuestion
+			} else if c == '!' {
+				qualifier = '!'
+				state = stateAfterPrefixBang
 			} else if isValidKeyChar(c) {
 				currentKey.WriteRune(unicode.ToLower(c))
 				state = stateInKey
@@ -224,6 +298,19 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 				return nil, &TaggedUrnError{
 					Code:    ErrorInvalidCharacter,
 					Message: fmt.Sprintf("invalid character '%c' at position %d", c, pos),
+				}
+			}
+
+		case stateAfterPrefixQuestion, stateAfterPrefixBang:
+			if isValidKeyChar(c) {
+				currentKey.WriteRune(unicode.ToLower(c))
+				state = stateInKey
+			} else {
+				return nil, &TaggedUrnError{
+					Code: ErrorInvalidCharacter,
+					Message: fmt.Sprintf(
+						"expected key character after '%c' qualifier, got '%c' at position %d",
+						qualifier, c, pos),
 				}
 			}
 
@@ -236,15 +323,36 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 					}
 				}
 				state = stateExpectingValue
+			} else if c == '?' {
+				if qualifier != 0 {
+					return nil, &TaggedUrnError{
+						Code: ErrorInvalidCharacter,
+						Message: fmt.Sprintf(
+							"duplicate qualifier '?' at position %d: prefix and infix qualifiers cannot be combined on key '%s'",
+							pos, currentKey.String()),
+					}
+				}
+				qualifier = '?'
+				state = stateInKeyAfterQuestion
+			} else if c == '!' {
+				if qualifier != 0 {
+					return nil, &TaggedUrnError{
+						Code: ErrorInvalidCharacter,
+						Message: fmt.Sprintf(
+							"duplicate qualifier '!' at position %d: prefix and infix qualifiers cannot be combined on key '%s'",
+							pos, currentKey.String()),
+					}
+				}
+				qualifier = '!'
+				state = stateInKeyAfterBang
 			} else if c == ';' {
-				// Value-less tag: treat as wildcard
 				if currentKey.Len() == 0 {
 					return nil, &TaggedUrnError{
 						Code:    ErrorEmptyTag,
 						Message: "empty key",
 					}
 				}
-				currentValue.WriteString("*")
+				currentValue.WriteString(canonicalNoValue())
 				if err := finishTag(); err != nil {
 					return nil, err
 				}
@@ -255,6 +363,24 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 				return nil, &TaggedUrnError{
 					Code:    ErrorInvalidCharacter,
 					Message: fmt.Sprintf("invalid character '%c' in key at position %d", c, pos),
+				}
+			}
+
+		case stateInKeyAfterQuestion, stateInKeyAfterBang:
+			if c == '=' {
+				state = stateExpectingValue
+			} else if c == ';' {
+				currentValue.WriteString(canonicalNoValue())
+				if err := finishTag(); err != nil {
+					return nil, err
+				}
+				state = stateExpectingKey
+			} else {
+				return nil, &TaggedUrnError{
+					Code: ErrorInvalidCharacter,
+					Message: fmt.Sprintf(
+						"expected '=' or ';' after '%s%c' suffix qualifier, got '%c' at position %d",
+						currentKey.String(), qualifier, c, pos),
 				}
 			}
 
@@ -278,6 +404,9 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 
 		case stateInUnquotedValue:
 			if c == ';' {
+				if err := canonicalizeValue(); err != nil {
+					return nil, err
+				}
 				if err := finishTag(); err != nil {
 					return nil, err
 				}
@@ -297,7 +426,6 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 			} else if c == '\\' {
 				state = stateInQuotedValueEscape
 			} else {
-				// Any character allowed in quoted value, preserve case
 				currentValue.WriteRune(c)
 			}
 
@@ -314,6 +442,9 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 
 		case stateExpectingSemiOrEnd:
 			if c == ';' {
+				if err := canonicalizeValue(); err != nil {
+					return nil, err
+				}
 				if err := finishTag(); err != nil {
 					return nil, err
 				}
@@ -329,28 +460,39 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 		pos++
 	}
 
-	// Handle end of input
 	switch state {
 	case stateInUnquotedValue, stateExpectingSemiOrEnd:
+		if err := canonicalizeValue(); err != nil {
+			return nil, err
+		}
 		if err := finishTag(); err != nil {
 			return nil, err
 		}
 	case stateExpectingKey:
-		// Valid - trailing semicolon or empty input after prefix
+		// Valid — trailing semicolon or empty input after prefix.
 	case stateInQuotedValue, stateInQuotedValueEscape:
 		return nil, &TaggedUrnError{
 			Code:    ErrorUnterminatedQuote,
 			Message: fmt.Sprintf("unterminated quote at position %d", pos),
 		}
+	case stateAfterPrefixQuestion, stateAfterPrefixBang:
+		return nil, &TaggedUrnError{
+			Code:    ErrorEmptyTag,
+			Message: fmt.Sprintf("qualifier '%c' at end of input has no key", qualifier),
+		}
 	case stateInKey:
-		// Value-less tag at end: treat as wildcard
 		if currentKey.Len() == 0 {
 			return nil, &TaggedUrnError{
 				Code:    ErrorEmptyTag,
 				Message: "empty key",
 			}
 		}
-		currentValue.WriteString("*")
+		currentValue.WriteString(canonicalNoValue())
+		if err := finishTag(); err != nil {
+			return nil, err
+		}
+	case stateInKeyAfterQuestion, stateInKeyAfterBang:
+		currentValue.WriteString(canonicalNoValue())
 		if err := finishTag(); err != nil {
 			return nil, err
 		}
@@ -545,49 +687,128 @@ func checkMatch(instanceTags map[string]string, instancePrefix string, patternTa
 // | K=v      | K=*     | OK     | Pattern wants any, v satisfies |
 // | K=v      | K=v     | OK     | Exact match |
 // | K=v      | K=w     | NO     | Value mismatch (v≠w) |
+
+// formKind classifies a stored tag value into one of the six
+// canonical constraint forms (plus "missing" for nil). The remaining
+// matcher logic operates on (kind, optional value) pairs uniformly.
+type formKind int
+
+const (
+	formMissing             formKind = iota // key absent from tag map
+	formNoConstraint                        // "?" — no constraint
+	formAbsentOrNotValue                    // "?=v" — absent OR (present and not v)
+	formMustHaveAny                         // "*" — present with any value
+	formPresentNotValue                     // "!=v" — present and not v
+	formExact                               // exact value
+	formMustNotHave                         // "!" — must not have
+)
+
+// classifyForm parses the stored value into (kind, raw value).
+// The returned value is the inner v for ?=v and !=v, the literal
+// value for exact, and "" for the sigil-only forms.
+func classifyForm(value *string) (formKind, string) {
+	if value == nil {
+		return formMissing, ""
+	}
+	v := *value
+	switch v {
+	case "?":
+		return formNoConstraint, ""
+	case "*":
+		return formMustHaveAny, ""
+	case "!":
+		return formMustNotHave, ""
+	}
+	if strings.HasPrefix(v, "?=") {
+		return formAbsentOrNotValue, v[2:]
+	}
+	if strings.HasPrefix(v, "!=") {
+		return formPresentNotValue, v[2:]
+	}
+	return formExact, v
+}
+
+// ValuesMatch evaluates the truth-table cell for (instance, pattern)
+// over the six canonical forms. Both arguments are stored tag-value
+// pointers (or nil to mean "key absent"). Exposed for callers (e.g.
+// CapUrn's y-axis matcher) that walk tag sets themselves and need
+// the same per-cell decision the tagged-URN matcher uses internally.
+func ValuesMatch(inst, patt *string) bool {
+	return valuesMatch(inst, patt)
+}
+
+// valuesMatch is the package-private worker. Prefer the exported
+// wrapper above for callers outside this package.
 func valuesMatch(inst, patt *string) bool {
-	// Pattern has no constraint (no entry or explicit ?)
-	if patt == nil || *patt == "?" {
+	iKind, iVal := classifyForm(inst)
+	pKind, pVal := classifyForm(patt)
+
+	// Pattern unconditionally permissive.
+	if pKind == formMissing || pKind == formNoConstraint {
 		return true
 	}
 
-	// Instance doesn't care (explicit ?)
-	if inst != nil && *inst == "?" {
+	// Instance unconditionally permissive — defers to pattern.
+	if iKind == formNoConstraint {
 		return true
 	}
 
-	// Pattern: must-not-have (!)
-	if *patt == "!" {
-		if inst == nil {
-			return true // Instance absent, pattern wants absent
+	switch pKind {
+	case formMustNotHave:
+		// Pattern requires absent. Only absent-side instances pass.
+		switch iKind {
+		case formMissing, formMustNotHave, formAbsentOrNotValue:
+			return true
+		default:
+			return false
 		}
-		if *inst == "!" {
-			return true // Both say absent
+
+	case formMustHaveAny:
+		// Pattern requires present (any value).
+		switch iKind {
+		case formMissing, formAbsentOrNotValue, formMustNotHave:
+			return false
+		default:
+			return true
 		}
-		return false // Instance has value, pattern wants absent
+
+	case formPresentNotValue:
+		// Pattern requires present-and-not-pVal.
+		switch iKind {
+		case formMissing, formAbsentOrNotValue, formMustNotHave:
+			return false
+		case formMustHaveAny, formPresentNotValue:
+			return true // defer on actual value identity
+		case formExact:
+			return iVal != pVal
+		}
+
+	case formAbsentOrNotValue:
+		// Pattern allows absent OR (present and not pVal).
+		switch iKind {
+		case formMissing, formAbsentOrNotValue, formMustNotHave:
+			return true
+		case formMustHaveAny, formPresentNotValue:
+			return true // defer
+		case formExact:
+			return iVal != pVal
+		}
+
+	case formExact:
+		// Pattern requires exact pVal.
+		switch iKind {
+		case formMissing, formAbsentOrNotValue, formMustNotHave:
+			return false
+		case formMustHaveAny:
+			return true // defer
+		case formPresentNotValue:
+			return iVal != pVal
+		case formExact:
+			return iVal == pVal
+		}
 	}
 
-	// Instance: must-not-have conflicts with pattern wanting value
-	if inst != nil && *inst == "!" {
-		return false // Conflict: absent vs value or present
-	}
-
-	// Pattern: must-have-any (*)
-	if *patt == "*" {
-		if inst == nil {
-			return false // Instance missing, pattern wants present
-		}
-		return true // Instance has value, pattern wants any
-	}
-
-	// Pattern: exact value
-	if inst == nil {
-		return false // Instance missing, pattern wants exact value
-	}
-	if *inst == "*" {
-		return true // Instance accepts any, pattern's value is fine
-	}
-	return *inst == *patt // Both have values, must match exactly
+	return false
 }
 
 // ConformsToStr checks if this URN (instance) satisfies a string pattern's constraints.
@@ -608,50 +829,78 @@ func (c *TaggedUrn) AcceptsStr(instanceStr string) (bool, error) {
 	return c.Accepts(instance)
 }
 
-// Specificity returns the specificity score for URN matching
-// More specific URNs have higher scores and are preferred
-// Graded scoring:
-// - K=v (exact value): 3 points (most specific)
-// - K=* (must-have-any): 2 points
-// - K=! (must-not-have): 1 point
-// - K=? (unspecified): 0 points (least specific)
+// ScoreTagValue returns the per-tag truth-table specificity score.
+// Applied uniformly to any stored tag value — media-URN tags, cap-tag
+// y-axis, any other Tagged URN dimension. Missing keys score 0; the
+// caller filters them out before calling.
+//
+//	"?"          -> 0   (no constraint)
+//	starts "?="  -> 1   (absent or not v)
+//	"*"          -> 2   (must-have-any)
+//	starts "!="  -> 3   (present and not v)
+//	"!"          -> 5   (must-not-have)
+//	otherwise    -> 4   (exact value)
+func ScoreTagValue(value string) int {
+	switch value {
+	case "?":
+		return 0
+	case "*":
+		return 2
+	case "!":
+		return 5
+	}
+	if strings.HasPrefix(value, "?=") {
+		return 1
+	}
+	if strings.HasPrefix(value, "!=") {
+		return 3
+	}
+	return 4
+}
+
+// Specificity returns the specificity score for URN matching.
+// More specific URNs have higher scores and are preferred. Sum of
+// the per-tag truth-table score across every tag in the URN.
 func (c *TaggedUrn) Specificity() int {
 	score := 0
 	for _, value := range c.tags {
-		switch value {
-		case "?":
-			score += 0
-		case "!":
-			score += 1
-		case "*":
-			score += 2
-		default:
-			score += 3 // exact value
-		}
+		score += ScoreTagValue(value)
 	}
 	return score
 }
 
-// SpecificityTuple returns specificity as a tuple for tie-breaking
-// Returns (exact_count, must_have_any_count, must_not_count)
-// Compare tuples lexicographically when sum scores are equal
-func (c *TaggedUrn) SpecificityTuple() (int, int, int) {
+// SpecificityTuple returns specificity as a tuple for tie-breaking.
+// Counts how many tags fall into each non-zero form bucket, ordered
+// from highest score to lowest:
+//
+//	(must_not_have, exact, present_not_value, must_have_any, absent_or_not_value)
+//
+// Compare tuples lexicographically when sum scores are equal.
+func (c *TaggedUrn) SpecificityTuple() (int, int, int, int, int) {
+	mustNotHave := 0
 	exact := 0
+	presentNotValue := 0
 	mustHaveAny := 0
-	mustNot := 0
+	absentOrNotValue := 0
 	for _, value := range c.tags {
-		switch value {
-		case "?":
-			// 0 points, not counted
-		case "!":
-			mustNot++
-		case "*":
-			mustHaveAny++
-		default:
+		v := value
+		kind, _ := classifyForm(&v)
+		switch kind {
+		case formMustNotHave:
+			mustNotHave++
+		case formExact:
 			exact++
+		case formPresentNotValue:
+			presentNotValue++
+		case formMustHaveAny:
+			mustHaveAny++
+		case formAbsentOrNotValue:
+			absentOrNotValue++
+		case formMissing, formNoConstraint:
+			// 0 points, not counted
 		}
 	}
-	return exact, mustHaveAny, mustNot
+	return mustNotHave, exact, presentNotValue, mustHaveAny, absentOrNotValue
 }
 
 // IsMoreSpecificThan checks if this URN is more specific than another
@@ -831,20 +1080,39 @@ func (c *TaggedUrn) ToString() string {
 	}
 	sort.Strings(keys)
 
-	// Build tag string with smart quoting
+	// Build tag string in canonical form. Stored values map to
+	// emitted forms as follows:
+	//
+	//   "*"           -> "k"          (bare key, must-have-any)
+	//   "?"           -> "?k"         (prefix qualifier, no constraint)
+	//   "!"           -> "!k"         (prefix qualifier, must-not-have)
+	//   "?=v"         -> "k?=v"       (infix qualifier, absent or not v)
+	//   "!=v"         -> "k!=v"       (infix qualifier, present and not v)
+	//   exact "v"     -> "k=v" / "k=\"v\"" (exact value, with quoting if needed)
 	parts := make([]string, 0, len(keys))
 	for _, key := range keys {
 		value := c.tags[key]
-		switch value {
-		case "*":
-			// Valueless sugar: key
+		switch {
+		case value == "*":
 			parts = append(parts, key)
-		case "?":
-			// Explicit: key=?
-			parts = append(parts, fmt.Sprintf("%s=?", key))
-		case "!":
-			// Explicit: key=!
-			parts = append(parts, fmt.Sprintf("%s=!", key))
+		case value == "?":
+			parts = append(parts, fmt.Sprintf("?%s", key))
+		case value == "!":
+			parts = append(parts, fmt.Sprintf("!%s", key))
+		case strings.HasPrefix(value, "?="):
+			raw := value[2:]
+			if needsQuoting(raw) {
+				parts = append(parts, fmt.Sprintf("%s?=%s", key, quoteValue(raw)))
+			} else {
+				parts = append(parts, fmt.Sprintf("%s?=%s", key, raw))
+			}
+		case strings.HasPrefix(value, "!="):
+			raw := value[2:]
+			if needsQuoting(raw) {
+				parts = append(parts, fmt.Sprintf("%s!=%s", key, quoteValue(raw)))
+			} else {
+				parts = append(parts, fmt.Sprintf("%s!=%s", key, raw))
+			}
 		default:
 			if needsQuoting(value) {
 				parts = append(parts, fmt.Sprintf("%s=%s", key, quoteValue(value)))
