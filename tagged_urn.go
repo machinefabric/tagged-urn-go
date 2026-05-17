@@ -36,6 +36,40 @@ type TaggedUrn struct {
 	tags   map[string]string
 }
 
+// TaggedUrnRelationKind classifies the order-theoretic relation between two
+// tagged URNs. It is derived from Accepts/IsComparable/IsEquivalent and is
+// attached to coordinate deltas so callers can distinguish same-point edits,
+// same-chain edits, and cross-branch edits without pretending delta only
+// exists for comparable pairs.
+type TaggedUrnRelationKind string
+
+const (
+	TaggedUrnRelationEquivalent   TaggedUrnRelationKind = "equivalent"
+	TaggedUrnRelationComparable   TaggedUrnRelationKind = "comparable"
+	TaggedUrnRelationIncomparable TaggedUrnRelationKind = "incomparable"
+)
+
+// TaggedUrnCoordinateDelta is the coordinate-space edit from one tagged URN to
+// another with the same prefix.
+//
+// Removed contains canonical coordinate entries present in the base but absent
+// or changed in the target. Added contains canonical coordinate entries absent
+// from the base or changed in the target.
+type TaggedUrnCoordinateDelta struct {
+	Prefix       string
+	Removed      map[string]string
+	Added        map[string]string
+	RelationKind TaggedUrnRelationKind
+}
+
+// IsEmpty returns true when the delta makes no coordinate-space change.
+func (d *TaggedUrnCoordinateDelta) IsEmpty() bool {
+	if d == nil {
+		return true
+	}
+	return len(d.Removed) == 0 && len(d.Added) == 0
+}
+
 // TaggedUrnError represents errors that can occur during tagged URN operations
 type TaggedUrnError struct {
 	Code    int
@@ -993,6 +1027,163 @@ func (c *TaggedUrn) IsComparable(other *TaggedUrn) (bool, error) {
 	}
 
 	return aAcceptsB || bAcceptsA, nil
+}
+
+// Compare returns -1, 0, or 1 using structural tagged-URN ordering:
+// prefix first, then lexicographic order over sorted tag key/value pairs.
+func (c *TaggedUrn) Compare(other *TaggedUrn) int {
+	if c == nil && other == nil {
+		return 0
+	}
+	if c == nil {
+		return -1
+	}
+	if other == nil {
+		return 1
+	}
+	if c.prefix < other.prefix {
+		return -1
+	}
+	if c.prefix > other.prefix {
+		return 1
+	}
+	keysA := make([]string, 0, len(c.tags))
+	keysB := make([]string, 0, len(other.tags))
+	for k := range c.tags {
+		keysA = append(keysA, k)
+	}
+	for k := range other.tags {
+		keysB = append(keysB, k)
+	}
+	sort.Strings(keysA)
+	sort.Strings(keysB)
+	limit := len(keysA)
+	if len(keysB) < limit {
+		limit = len(keysB)
+	}
+	for i := 0; i < limit; i++ {
+		if keysA[i] < keysB[i] {
+			return -1
+		}
+		if keysA[i] > keysB[i] {
+			return 1
+		}
+		va := c.tags[keysA[i]]
+		vb := other.tags[keysB[i]]
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+	}
+	if len(keysA) < len(keysB) {
+		return -1
+	}
+	if len(keysA) > len(keysB) {
+		return 1
+	}
+	return 0
+}
+
+// DeltaFrom computes the coordinate-space delta from base to c.
+//
+// Delta is defined over explicit canonical coordinates, not semantic
+// equivalence classes. Equivalent URNs may still yield a non-empty delta if one
+// side explicitly authors no-op coordinates.
+func (c *TaggedUrn) DeltaFrom(base *TaggedUrn) (*TaggedUrnCoordinateDelta, error) {
+	if base == nil {
+		return nil, &TaggedUrnError{
+			Code:    ErrorInvalidFormat,
+			Message: "cannot derive delta from nil URN",
+		}
+	}
+	if c.prefix != base.prefix {
+		return nil, &TaggedUrnError{
+			Code:    ErrorPrefixMismatch,
+			Message: fmt.Sprintf("cannot compare URNs with different prefixes: '%s' vs '%s'", base.prefix, c.prefix),
+		}
+	}
+
+	equivalent, err := c.IsEquivalent(base)
+	if err != nil {
+		return nil, err
+	}
+	comparable := false
+	if !equivalent {
+		comparable, err = c.IsComparable(base)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	relationKind := TaggedUrnRelationIncomparable
+	if equivalent {
+		relationKind = TaggedUrnRelationEquivalent
+	} else if comparable {
+		relationKind = TaggedUrnRelationComparable
+	}
+
+	removed := make(map[string]string)
+	added := make(map[string]string)
+	allKeys := make(map[string]struct{}, len(base.tags)+len(c.tags))
+	for key := range base.tags {
+		allKeys[key] = struct{}{}
+	}
+	for key := range c.tags {
+		allKeys[key] = struct{}{}
+	}
+	for key := range allKeys {
+		baseValue, baseExists := base.tags[key]
+		targetValue, targetExists := c.tags[key]
+		if baseExists && targetExists && baseValue == targetValue {
+			continue
+		}
+		if baseExists {
+			removed[key] = baseValue
+		}
+		if targetExists {
+			added[key] = targetValue
+		}
+	}
+
+	return &TaggedUrnCoordinateDelta{
+		Prefix:       c.prefix,
+		Removed:      removed,
+		Added:        added,
+		RelationKind: relationKind,
+	}, nil
+}
+
+// ApplyDelta applies a coordinate-space delta to this tagged URN.
+//
+// Keys named in Removed are deleted regardless of current value, then keys
+// named in Added are inserted. Unrelated coordinates are preserved.
+func (c *TaggedUrn) ApplyDelta(delta *TaggedUrnCoordinateDelta) (*TaggedUrn, error) {
+	if delta == nil {
+		return nil, &TaggedUrnError{
+			Code:    ErrorInvalidFormat,
+			Message: "cannot apply nil delta",
+		}
+	}
+	if c.prefix != delta.Prefix {
+		return nil, &TaggedUrnError{
+			Code:    ErrorPrefixMismatch,
+			Message: fmt.Sprintf("cannot apply delta with different prefix: '%s' vs '%s'", delta.Prefix, c.prefix),
+		}
+	}
+
+	nextTags := make(map[string]string, len(c.tags)+len(delta.Added))
+	for key, value := range c.tags {
+		nextTags[key] = value
+	}
+	for key := range delta.Removed {
+		delete(nextTags, key)
+	}
+	for key, value := range delta.Added {
+		nextTags[key] = value
+	}
+	return &TaggedUrn{prefix: c.prefix, tags: nextTags}, nil
 }
 
 // IsEquivalentStr is a string variant of IsEquivalent.
