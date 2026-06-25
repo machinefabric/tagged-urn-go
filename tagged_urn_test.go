@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTaggedUrnCreation(t *testing.T) {
+// TEST0001: Tagged urn creation
+func Test0001_TaggedUrnCreation(t *testing.T) {
 	taggedUrn, err := NewTaggedUrnFromString("cap:transform;format=json;data_processing")
 
 	assert.NoError(t, err)
@@ -27,7 +28,8 @@ func TestTaggedUrnCreation(t *testing.T) {
 	assert.Equal(t, "json", format)
 }
 
-func TestCustomPrefix(t *testing.T) {
+// TEST0002: Custom prefix
+func Test0002_CustomPrefix(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("myapp:generate;ext=pdf")
 	require.NoError(t, err)
 
@@ -36,7 +38,8 @@ func TestCustomPrefix(t *testing.T) {
 	assert.Equal(t, "myapp:ext=pdf;generate", urn.ToString())
 }
 
-func TestPrefixCaseInsensitive(t *testing.T) {
+// TEST0003: Prefix case insensitive
+func Test0003_PrefixCaseInsensitive(t *testing.T) {
 	urn1, err := NewTaggedUrnFromString("CAP:test")
 	require.NoError(t, err)
 	urn2, err := NewTaggedUrnFromString("cap:test")
@@ -51,7 +54,8 @@ func TestPrefixCaseInsensitive(t *testing.T) {
 	assert.True(t, urn2.Equals(urn3))
 }
 
-func TestPrefixMismatchError(t *testing.T) {
+// TEST0004: Prefix mismatch error
+func Test0004_PrefixMismatchError(t *testing.T) {
 	urn1, err := NewTaggedUrnFromString("cap:test")
 	require.NoError(t, err)
 	urn2, err := NewTaggedUrnFromString("myapp:test")
@@ -64,7 +68,8 @@ func TestPrefixMismatchError(t *testing.T) {
 	assert.Equal(t, ErrorPrefixMismatch, capError.Code)
 }
 
-func TestBuilderWithPrefix(t *testing.T) {
+// TEST0005: Builder with prefix
+func Test0005_BuilderWithPrefix(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("custom").
 		Tag("key", "value").
 		Build()
@@ -74,7 +79,8 @@ func TestBuilderWithPrefix(t *testing.T) {
 	assert.Equal(t, "custom:key=value", urn.ToString())
 }
 
-func TestCanonicalStringFormat(t *testing.T) {
+// TEST0006: Canonical string format
+func Test0006_CanonicalStringFormat(t *testing.T) {
 	taggedUrn, err := NewTaggedUrnFromString("cap:generate;target=thumbnail;ext=pdf")
 	require.NoError(t, err)
 
@@ -82,7 +88,8 @@ func TestCanonicalStringFormat(t *testing.T) {
 	assert.Equal(t, "cap:ext=pdf;generate;target=thumbnail", taggedUrn.ToString())
 }
 
-func TestPrefixRequired(t *testing.T) {
+// TEST0007: Prefix required
+func Test0007_PrefixRequired(t *testing.T) {
 	// Missing prefix should fail
 	taggedUrn, err := NewTaggedUrnFromString("generate;ext=pdf")
 	assert.Nil(t, taggedUrn)
@@ -107,7 +114,8 @@ func TestPrefixRequired(t *testing.T) {
 	assert.True(t, taggedUrn.HasMarkerTag("generate"))
 }
 
-func TestTrailingSemicolonEquivalence(t *testing.T) {
+// TEST0008: Trailing semicolon equivalence
+func Test0008_TrailingSemicolonEquivalence(t *testing.T) {
 	// Both with and without trailing semicolon should be equivalent
 	urn1, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
@@ -134,7 +142,8 @@ func TestTrailingSemicolonEquivalence(t *testing.T) {
 	assert.True(t, matches2)
 }
 
-func TestInvalidTaggedUrn(t *testing.T) {
+// TEST0009: Invalid tagged urn
+func Test0009_InvalidTaggedUrn(t *testing.T) {
 	taggedUrn, err := NewTaggedUrnFromString("")
 
 	assert.Nil(t, taggedUrn)
@@ -142,7 +151,8 @@ func TestInvalidTaggedUrn(t *testing.T) {
 	assert.Equal(t, ErrorInvalidFormat, err.(*TaggedUrnError).Code)
 }
 
-func TestValuelessTagParsing(t *testing.T) {
+// TEST0010: Valueless tag parsing
+func Test0010_ValuelessTagParsing(t *testing.T) {
 	// Value-less tag is now valid and treated as wildcard
 	taggedUrn, err := NewTaggedUrnFromString("cap:optimize")
 
@@ -154,7 +164,8 @@ func TestValuelessTagParsing(t *testing.T) {
 	assert.Equal(t, "cap:optimize", taggedUrn.ToString())
 }
 
-func TestInvalidCharacters(t *testing.T) {
+// TEST0011: Invalid characters
+func Test0011_InvalidCharacters(t *testing.T) {
 	taggedUrn, err := NewTaggedUrnFromString("cap:type@invalid=value")
 
 	assert.Nil(t, taggedUrn)
@@ -162,7 +173,8 @@ func TestInvalidCharacters(t *testing.T) {
 	assert.Equal(t, ErrorInvalidCharacter, err.(*TaggedUrnError).Code)
 }
 
-func TestTagMatching(t *testing.T) {
+// TEST0012: Tag matching
+func Test0012_TagMatching(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;target=thumbnail")
 	require.NoError(t, err)
 
@@ -195,7 +207,8 @@ func TestTagMatching(t *testing.T) {
 	assert.False(t, matches)
 }
 
-func TestMissingTagHandling(t *testing.T) {
+// TEST0013: Missing tag handling
+func Test0013_MissingTagHandling(t *testing.T) {
 	// NEW SEMANTICS: Missing tag in instance means the tag doesn't exist.
 	// Pattern constraints must be satisfied by instance.
 
@@ -235,7 +248,8 @@ func TestMissingTagHandling(t *testing.T) {
 	assert.False(t, matches) // Instance missing ext, pattern requires ext to be present
 }
 
-func TestSpecificity(t *testing.T) {
+// TEST0014: Specificity
+func Test0014_Specificity(t *testing.T) {
 	// Six-form per-tag specificity ladder:
 	//   ?x        : 0  (no constraint)
 	//   x?=v      : 1  (absent OR not v)
@@ -278,7 +292,8 @@ func TestSpecificity(t *testing.T) {
 	assert.True(t, moreSpecific) // exact(4) > marker(2)
 }
 
-func TestCompatibility(t *testing.T) {
+// TEST0015: Compatibility
+func Test0015_Compatibility(t *testing.T) {
 	// TEST526: Compatibility now uses directional Accepts
 	// General pattern (fewer tags) accepts specific instance (more tags)
 	general, err := NewTaggedUrnFromString("cap:generate")
@@ -310,7 +325,8 @@ func TestCompatibility(t *testing.T) {
 	assert.False(t, accepts)
 }
 
-func TestConvenienceMethods(t *testing.T) {
+// TEST0016: Convenience methods
+func Test0016_ConvenienceMethods(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;output=binary;target=thumbnail")
 	require.NoError(t, err)
 
@@ -329,7 +345,8 @@ func TestConvenienceMethods(t *testing.T) {
 	assert.Equal(t, "binary", output)
 }
 
-func TestBuilder(t *testing.T) {
+// TEST0017: Builder
+func Test0017_Builder(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Marker("generate").
 		Tag("target", "thumbnail").
@@ -345,7 +362,8 @@ func TestBuilder(t *testing.T) {
 	assert.Equal(t, "binary", output)
 }
 
-func TestWithTag(t *testing.T) {
+// TEST0018: With tag
+func Test0018_WithTag(t *testing.T) {
 	original, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
@@ -357,7 +375,8 @@ func TestWithTag(t *testing.T) {
 	assert.Equal(t, "cap:generate", original.ToString())
 }
 
-func TestWithoutTag(t *testing.T) {
+// TEST0019: Without tag
+func Test0019_WithoutTag(t *testing.T) {
 	original, err := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	require.NoError(t, err)
 
@@ -369,7 +388,8 @@ func TestWithoutTag(t *testing.T) {
 	assert.Equal(t, "cap:ext=pdf;generate", original.ToString())
 }
 
-func TestWildcardTag(t *testing.T) {
+// TEST0020: Wildcard tag
+func Test0020_WildcardTag(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:ext=pdf")
 	require.NoError(t, err)
 
@@ -392,7 +412,8 @@ func TestWildcardTag(t *testing.T) {
 	assert.True(t, matches)
 }
 
-func TestSubset(t *testing.T) {
+// TEST0021: Subset
+func Test0021_Subset(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:generate;ext=pdf;output=binary;target=thumbnail;")
 	require.NoError(t, err)
 
@@ -401,7 +422,8 @@ func TestSubset(t *testing.T) {
 	assert.Equal(t, "cap:ext=pdf", subset.ToString())
 }
 
-func TestMerge(t *testing.T) {
+// TEST0022: Merge
+func Test0022_Merge(t *testing.T) {
 	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
@@ -414,7 +436,8 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, "cap:ext=pdf;generate;output=binary", merged.ToString())
 }
 
-func TestMergePrefixMismatch(t *testing.T) {
+// TEST0023: Merge prefix mismatch
+func Test0023_MergePrefixMismatch(t *testing.T) {
 	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
@@ -428,7 +451,8 @@ func TestMergePrefixMismatch(t *testing.T) {
 	assert.Equal(t, ErrorPrefixMismatch, capError.Code)
 }
 
-func TestEquality(t *testing.T) {
+// TEST0024: Equality
+func Test0024_Equality(t *testing.T) {
 	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
@@ -442,7 +466,8 @@ func TestEquality(t *testing.T) {
 	assert.False(t, urn1.Equals(urn3))
 }
 
-func TestEqualityDifferentPrefix(t *testing.T) {
+// TEST0025: Equality different prefix
+func Test0025_EqualityDifferentPrefix(t *testing.T) {
 	urn1, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
@@ -452,7 +477,8 @@ func TestEqualityDifferentPrefix(t *testing.T) {
 	assert.False(t, urn1.Equals(urn2))
 }
 
-func TestUrnMatcher(t *testing.T) {
+// TEST0026: Urn matcher
+func Test0026_UrnMatcher(t *testing.T) {
 	matcher := &UrnMatcher{}
 
 	urns := []*TaggedUrn{}
@@ -480,7 +506,8 @@ func TestUrnMatcher(t *testing.T) {
 	assert.Equal(t, "cap:ext=pdf;generate", best.ToString())
 }
 
-func TestUrnMatcherPrefixMismatch(t *testing.T) {
+// TEST0027: Urn matcher prefix mismatch
+func Test0027_UrnMatcherPrefixMismatch(t *testing.T) {
 	matcher := &UrnMatcher{}
 
 	urns := []*TaggedUrn{}
@@ -496,7 +523,8 @@ func TestUrnMatcherPrefixMismatch(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestJSONSerialization(t *testing.T) {
+// TEST0028: J s o n serialization
+func Test0028_JSONSerialization(t *testing.T) {
 	original, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
@@ -510,7 +538,8 @@ func TestJSONSerialization(t *testing.T) {
 	assert.True(t, original.Equals(&decoded))
 }
 
-func TestJSONSerializationWithCustomPrefix(t *testing.T) {
+// TEST0029: J s o n serialization with custom prefix
+func Test0029_JSONSerializationWithCustomPrefix(t *testing.T) {
 	original, err := NewTaggedUrnFromString("myapp:key=value")
 	require.NoError(t, err)
 
@@ -524,7 +553,8 @@ func TestJSONSerializationWithCustomPrefix(t *testing.T) {
 	assert.Equal(t, "myapp", decoded.GetPrefix())
 }
 
-func TestUnquotedValuesLowercased(t *testing.T) {
+// TEST0030: Unquoted values lowercased
+func Test0030_UnquotedValuesLowercased(t *testing.T) {
 	// Unquoted keys AND values are normalized to lowercase.
 	urn, err := NewTaggedUrnFromString("cap:ext=pdf;generate;target=thumbnail;")
 	require.NoError(t, err)
@@ -552,7 +582,8 @@ func TestUnquotedValuesLowercased(t *testing.T) {
 	assert.True(t, urn.Equals(urn2))
 }
 
-func TestQuotedValuesPreserveCase(t *testing.T) {
+// TEST0031: Quoted values preserve case
+func Test0031_QuotedValuesPreserveCase(t *testing.T) {
 	// Quoted values preserve their case
 	urn, err := NewTaggedUrnFromString(`cap:key="Value With Spaces"`)
 	require.NoError(t, err)
@@ -580,7 +611,8 @@ func TestQuotedValuesPreserveCase(t *testing.T) {
 	assert.False(t, unquoted.Equals(quoted))  // NOT equal
 }
 
-func TestQuotedValueSpecialChars(t *testing.T) {
+// TEST0032: Quoted value special chars
+func Test0032_QuotedValueSpecialChars(t *testing.T) {
 	// Semicolons in quoted values
 	urn, err := NewTaggedUrnFromString(`cap:key="value;with;semicolons"`)
 	require.NoError(t, err)
@@ -603,7 +635,8 @@ func TestQuotedValueSpecialChars(t *testing.T) {
 	assert.Equal(t, "hello world", value3)
 }
 
-func TestQuotedValueEscapeSequences(t *testing.T) {
+// TEST0033: Quoted value escape sequences
+func Test0033_QuotedValueEscapeSequences(t *testing.T) {
 	// Escaped quotes
 	urn, err := NewTaggedUrnFromString(`cap:key="value\"quoted\""`)
 	require.NoError(t, err)
@@ -626,7 +659,8 @@ func TestQuotedValueEscapeSequences(t *testing.T) {
 	assert.Equal(t, `say "hello\world"`, value3)
 }
 
-func TestMixedQuotedUnquoted(t *testing.T) {
+// TEST0034: Mixed quoted unquoted
+func Test0034_MixedQuotedUnquoted(t *testing.T) {
 	urn, err := NewTaggedUrnFromString(`cap:a="Quoted";b=simple`)
 	require.NoError(t, err)
 
@@ -639,7 +673,8 @@ func TestMixedQuotedUnquoted(t *testing.T) {
 	assert.Equal(t, "simple", b)
 }
 
-func TestUnterminatedQuoteError(t *testing.T) {
+// TEST0035: Unterminated quote error
+func Test0035_UnterminatedQuoteError(t *testing.T) {
 	urn, err := NewTaggedUrnFromString(`cap:key="unterminated`)
 	assert.Nil(t, urn)
 	assert.Error(t, err)
@@ -648,7 +683,8 @@ func TestUnterminatedQuoteError(t *testing.T) {
 	assert.Equal(t, ErrorUnterminatedQuote, urnError.Code)
 }
 
-func TestInvalidEscapeSequenceError(t *testing.T) {
+// TEST0036: Invalid escape sequence error
+func Test0036_InvalidEscapeSequenceError(t *testing.T) {
 	urn, err := NewTaggedUrnFromString(`cap:key="bad\n"`)
 	assert.Nil(t, urn)
 	assert.Error(t, err)
@@ -665,7 +701,8 @@ func TestInvalidEscapeSequenceError(t *testing.T) {
 	assert.Equal(t, ErrorInvalidEscapeSequence, urnError2.Code)
 }
 
-func TestSerializationSmartQuoting(t *testing.T) {
+// TEST0037: Serialization smart quoting
+func Test0037_SerializationSmartQuoting(t *testing.T) {
 	// Simple lowercase value - no quoting needed
 	urn, err := NewTaggedUrnBuilder("cap").Tag("key", "simple").Build()
 	require.NoError(t, err)
@@ -697,7 +734,8 @@ func TestSerializationSmartQuoting(t *testing.T) {
 	assert.Equal(t, `cap:key="path\\file"`, urn6.ToString())
 }
 
-func TestRoundTripSimple(t *testing.T) {
+// TEST0038: Round trip simple
+func Test0038_RoundTripSimple(t *testing.T) {
 	original := "cap:generate;ext=pdf"
 	urn, err := NewTaggedUrnFromString(original)
 	require.NoError(t, err)
@@ -707,7 +745,8 @@ func TestRoundTripSimple(t *testing.T) {
 	assert.True(t, urn.Equals(reparsed))
 }
 
-func TestRoundTripQuoted(t *testing.T) {
+// TEST0039: Round trip quoted
+func Test0039_RoundTripQuoted(t *testing.T) {
 	original := `cap:key="Value With Spaces"`
 	urn, err := NewTaggedUrnFromString(original)
 	require.NoError(t, err)
@@ -720,7 +759,8 @@ func TestRoundTripQuoted(t *testing.T) {
 	assert.Equal(t, "Value With Spaces", value)
 }
 
-func TestRoundTripEscapes(t *testing.T) {
+// TEST0040: Round trip escapes
+func Test0040_RoundTripEscapes(t *testing.T) {
 	original := `cap:key="value\"with\\escapes"`
 	urn, err := NewTaggedUrnFromString(original)
 	require.NoError(t, err)
@@ -733,7 +773,8 @@ func TestRoundTripEscapes(t *testing.T) {
 	assert.True(t, urn.Equals(reparsed))
 }
 
-func TestMatchingCaseSensitiveValues(t *testing.T) {
+// TEST0041: Matching case sensitive values
+func Test0041_MatchingCaseSensitiveValues(t *testing.T) {
 	// Values with different case should NOT match
 	urn1, err := NewTaggedUrnFromString(`cap:key="Value"`)
 	require.NoError(t, err)
@@ -756,7 +797,8 @@ func TestMatchingCaseSensitiveValues(t *testing.T) {
 	assert.True(t, matches3)
 }
 
-func TestBuilderPreservesCase(t *testing.T) {
+// TEST0042: Builder preserves case
+func Test0042_BuilderPreservesCase(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Tag("KEY", "ValueWithCase").
 		Build()
@@ -771,7 +813,8 @@ func TestBuilderPreservesCase(t *testing.T) {
 	assert.Equal(t, `cap:key="ValueWithCase"`, urn.ToString())
 }
 
-func TestHasTagCaseSensitive(t *testing.T) {
+// TEST0043: Has tag case sensitive
+func Test0043_HasTagCaseSensitive(t *testing.T) {
 	urn, err := NewTaggedUrnFromString(`cap:key="Value"`)
 	require.NoError(t, err)
 
@@ -787,7 +830,8 @@ func TestHasTagCaseSensitive(t *testing.T) {
 	assert.True(t, urn.HasTag("Key", "Value"))
 }
 
-func TestWithTagPreservesValue(t *testing.T) {
+// TEST0044: With tag preserves value
+func Test0044_WithTagPreservesValue(t *testing.T) {
 	urn := NewTaggedUrnFromTags("cap", map[string]string{})
 	modified := urn.WithTag("key", "ValueWithCase")
 
@@ -796,7 +840,8 @@ func TestWithTagPreservesValue(t *testing.T) {
 	assert.Equal(t, "ValueWithCase", value)
 }
 
-func TestSemanticEquivalence(t *testing.T) {
+// TEST0045: Semantic equivalence
+func Test0045_SemanticEquivalence(t *testing.T) {
 	// Unquoted and quoted simple lowercase values are equivalent
 	unquoted, err := NewTaggedUrnFromString("cap:key=simple")
 	require.NoError(t, err)
@@ -809,7 +854,8 @@ func TestSemanticEquivalence(t *testing.T) {
 	assert.Equal(t, "cap:key=simple", quoted.ToString())
 }
 
-func TestEmptyTaggedUrn(t *testing.T) {
+// TEST0046: Empty tagged urn
+func Test0046_EmptyTaggedUrn(t *testing.T) {
 	// Empty tagged URN is valid
 	empty, err := NewTaggedUrnFromString("cap:")
 	assert.NoError(t, err)
@@ -846,14 +892,16 @@ func TestEmptyTaggedUrn(t *testing.T) {
 	assert.Equal(t, "cap:", empty2.ToString())
 }
 
-func TestEmptyWithCustomPrefix(t *testing.T) {
+// TEST0047: Empty with custom prefix
+func Test0047_EmptyWithCustomPrefix(t *testing.T) {
 	empty, err := NewTaggedUrnFromString("myapp:")
 	require.NoError(t, err)
 	assert.Equal(t, "myapp", empty.GetPrefix())
 	assert.Equal(t, "myapp:", empty.ToString())
 }
 
-func TestExtendedCharacterSupport(t *testing.T) {
+// TEST0048: Extended character support
+func Test0048_ExtendedCharacterSupport(t *testing.T) {
 	// Test forward slashes and colons in tag components
 	urn, err := NewTaggedUrnFromString("cap:url=https://example_org/api;path=/some/file")
 	assert.NoError(t, err)
@@ -868,7 +916,8 @@ func TestExtendedCharacterSupport(t *testing.T) {
 	assert.Equal(t, "/some/file", path)
 }
 
-func TestWildcardRestrictions(t *testing.T) {
+// TEST0049: Wildcard restrictions
+func Test0049_WildcardRestrictions(t *testing.T) {
 	// Wildcard should be rejected in keys
 	invalidKey, err := NewTaggedUrnFromString("cap:*=value")
 	assert.Error(t, err)
@@ -887,7 +936,8 @@ func TestWildcardRestrictions(t *testing.T) {
 	assert.Equal(t, "*", value)
 }
 
-func TestDuplicateKeyRejection(t *testing.T) {
+// TEST0050: Duplicate key rejection
+func Test0050_DuplicateKeyRejection(t *testing.T) {
 	// Duplicate keys should be rejected
 	duplicate, err := NewTaggedUrnFromString("cap:key=value1;key=value2")
 	assert.Error(t, err)
@@ -897,7 +947,8 @@ func TestDuplicateKeyRejection(t *testing.T) {
 	assert.Equal(t, ErrorDuplicateKey, urnError.Code)
 }
 
-func TestNumericKeyRestriction(t *testing.T) {
+// TEST0051: Numeric key restriction
+func Test0051_NumericKeyRestriction(t *testing.T) {
 	// Pure numeric keys should be rejected
 	numericKey, err := NewTaggedUrnFromString("cap:123=value")
 	assert.Error(t, err)
@@ -925,7 +976,8 @@ func TestNumericKeyRestriction(t *testing.T) {
 	assert.Equal(t, "123", value)
 }
 
-func TestEmptyValueError(t *testing.T) {
+// TEST0052: Empty value error
+func Test0052_EmptyValueError(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:key=")
 	assert.Nil(t, urn)
 	assert.Error(t, err)
@@ -935,7 +987,8 @@ func TestEmptyValueError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestMatchingDifferentPrefixesError(t *testing.T) {
+// TEST0053: Matching different prefixes error
+func Test0053_MatchingDifferentPrefixesError(t *testing.T) {
 	// URNs with different prefixes should cause an error, not just return false
 	urn1, err := NewTaggedUrnFromString("cap:test")
 	require.NoError(t, err)
@@ -958,7 +1011,7 @@ func TestMatchingDifferentPrefixesError(t *testing.T) {
 // All implementations (Rust, Go, JS, ObjC) must pass these identically
 // ============================================================================
 
-func TestMatchingSemantics_Test1_ExactMatch(t *testing.T) {
+func Test0054_MatchingSemantics_Test1_ExactMatch(t *testing.T) {
 	// Test 1: Exact match
 	// URN:     cap:generate;ext=pdf
 	// Request: cap:generate;ext=pdf
@@ -974,7 +1027,8 @@ func TestMatchingSemantics_Test1_ExactMatch(t *testing.T) {
 	assert.True(t, matches, "Test 1: Exact match should succeed")
 }
 
-func TestMatchingSemantics_Test2_InstanceMissingTag(t *testing.T) {
+// TEST0055: Matching semantics  test2  instance missing tag
+func Test0055_MatchingSemantics_Test2_InstanceMissingTag(t *testing.T) {
 	// Test 2: Instance missing tag
 	// Instance: cap:generate;in=media:;out=media:
 	// Pattern:  cap:generate;ext=pdf
@@ -1000,7 +1054,8 @@ func TestMatchingSemantics_Test2_InstanceMissingTag(t *testing.T) {
 	assert.True(t, matches, "Pattern with ext=? should match instance without ext")
 }
 
-func TestMatchingSemantics_Test3_UrnHasExtraTag(t *testing.T) {
+// TEST0056: Matching semantics  test3  urn has extra tag
+func Test0056_MatchingSemantics_Test3_UrnHasExtraTag(t *testing.T) {
 	// Test 3: URN has extra tag
 	// URN:     cap:generate;ext=pdf;version=2
 	// Request: cap:generate;ext=pdf
@@ -1016,7 +1071,8 @@ func TestMatchingSemantics_Test3_UrnHasExtraTag(t *testing.T) {
 	assert.True(t, matches, "Test 3: URN with extra tag should match")
 }
 
-func TestMatchingSemantics_Test4_RequestHasWildcard(t *testing.T) {
+// TEST0057: Matching semantics  test4  request has wildcard
+func Test0057_MatchingSemantics_Test4_RequestHasWildcard(t *testing.T) {
 	// Test 4: Request has wildcard
 	// URN:     cap:generate;ext=pdf
 	// Request: cap:generate;ext=*
@@ -1032,7 +1088,8 @@ func TestMatchingSemantics_Test4_RequestHasWildcard(t *testing.T) {
 	assert.True(t, matches, "Test 4: Request wildcard should match")
 }
 
-func TestMatchingSemantics_Test5_UrnHasWildcard(t *testing.T) {
+// TEST0058: Matching semantics  test5  urn has wildcard
+func Test0058_MatchingSemantics_Test5_UrnHasWildcard(t *testing.T) {
 	// Test 5: URN has wildcard
 	// URN:     cap:generate;ext=*
 	// Request: cap:generate;ext=pdf
@@ -1048,7 +1105,8 @@ func TestMatchingSemantics_Test5_UrnHasWildcard(t *testing.T) {
 	assert.True(t, matches, "Test 5: URN wildcard should match")
 }
 
-func TestMatchingSemantics_Test6_ValueMismatch(t *testing.T) {
+// TEST0059: Matching semantics  test6  value mismatch
+func Test0059_MatchingSemantics_Test6_ValueMismatch(t *testing.T) {
 	// Test 6: Value mismatch
 	// URN:     cap:generate;ext=pdf
 	// Request: cap:generate;ext=docx
@@ -1064,7 +1122,8 @@ func TestMatchingSemantics_Test6_ValueMismatch(t *testing.T) {
 	assert.False(t, matches, "Test 6: Value mismatch should not match")
 }
 
-func TestMatchingSemantics_Test7_PatternHasExtraTag(t *testing.T) {
+// TEST0060: Matching semantics  test7  pattern has extra tag
+func Test0060_MatchingSemantics_Test7_PatternHasExtraTag(t *testing.T) {
 	// Test 7: Pattern has extra tag that instance doesn't have
 	// Instance: cap:generate-thumbnail;out="media:binary"
 	// Pattern:  cap:generate-thumbnail;out="media:binary";ext=wav
@@ -1089,7 +1148,8 @@ func TestMatchingSemantics_Test7_PatternHasExtraTag(t *testing.T) {
 	assert.True(t, matches)
 }
 
-func TestMatchingSemantics_Test8_EmptyPatternMatchesAnything(t *testing.T) {
+// TEST0061: Matching semantics  test8  empty pattern matches anything
+func Test0061_MatchingSemantics_Test8_EmptyPatternMatchesAnything(t *testing.T) {
 	// Test 8: Empty PATTERN matches any INSTANCE
 	// Instance: cap:generate;ext=pdf
 	// Pattern:  cap:
@@ -1117,7 +1177,8 @@ func TestMatchingSemantics_Test8_EmptyPatternMatchesAnything(t *testing.T) {
 	assert.False(t, matches, "Empty instance should NOT match pattern with requirements")
 }
 
-func TestMatchingSemantics_Test9_CrossDimensionConstraints(t *testing.T) {
+// TEST0062: Matching semantics  test9  cross dimension constraints
+func Test0062_MatchingSemantics_Test9_CrossDimensionConstraints(t *testing.T) {
 	// Test 9: Cross-dimension constraints
 	// Instance: cap:generate;in=media:;out=media:
 	// Pattern:  cap:ext=pdf
@@ -1149,7 +1210,7 @@ func TestMatchingSemantics_Test9_CrossDimensionConstraints(t *testing.T) {
 // Value-less tags are equivalent to wildcard tags (key=*)
 // ============================================================================
 
-func TestValuelessTagParsingSingle(t *testing.T) {
+func Test0063_ValuelessTagParsingSingle(t *testing.T) {
 	// Single value-less tag
 	urn, err := NewTaggedUrnFromString("cap:optimize")
 	require.NoError(t, err)
@@ -1161,7 +1222,8 @@ func TestValuelessTagParsingSingle(t *testing.T) {
 	assert.Equal(t, "cap:optimize", urn.ToString())
 }
 
-func TestValuelessTagParsingMultiple(t *testing.T) {
+// TEST0064: Valueless tag parsing multiple
+func Test0064_ValuelessTagParsingMultiple(t *testing.T) {
 	// Multiple value-less tags
 	urn, err := NewTaggedUrnFromString("cap:fast;optimize;secure")
 	require.NoError(t, err)
@@ -1182,7 +1244,8 @@ func TestValuelessTagParsingMultiple(t *testing.T) {
 	assert.Equal(t, "cap:fast;optimize;secure", urn.ToString())
 }
 
-func TestValuelessTagMixedWithValued(t *testing.T) {
+// TEST0065: Valueless tag mixed with valued
+func Test0065_ValuelessTagMixedWithValued(t *testing.T) {
 	// Mix of value-less and valued tags
 	urn, err := NewTaggedUrnFromString("cap:generate;optimize;ext=pdf;secure")
 	require.NoError(t, err)
@@ -1205,7 +1268,8 @@ func TestValuelessTagMixedWithValued(t *testing.T) {
 	assert.Equal(t, "cap:ext=pdf;generate;optimize;secure", urn.ToString())
 }
 
-func TestValuelessTagAtEnd(t *testing.T) {
+// TEST0066: Valueless tag at end
+func Test0066_ValuelessTagAtEnd(t *testing.T) {
 	// Value-less tag at the end (no trailing semicolon)
 	urn, err := NewTaggedUrnFromString("cap:generate;optimize")
 	require.NoError(t, err)
@@ -1219,7 +1283,8 @@ func TestValuelessTagAtEnd(t *testing.T) {
 	assert.Equal(t, "cap:generate;optimize", urn.ToString())
 }
 
-func TestValuelessTagEquivalenceToWildcard(t *testing.T) {
+// TEST0067: Valueless tag equivalence to wildcard
+func Test0067_ValuelessTagEquivalenceToWildcard(t *testing.T) {
 	// Value-less tag is equivalent to explicit wildcard
 	valueless, err := NewTaggedUrnFromString("cap:ext")
 	require.NoError(t, err)
@@ -1233,7 +1298,8 @@ func TestValuelessTagEquivalenceToWildcard(t *testing.T) {
 	assert.Equal(t, "cap:ext", wildcard.ToString())
 }
 
-func TestValuelessTagMatching(t *testing.T) {
+// TEST0068: Valueless tag matching
+func Test0068_ValuelessTagMatching(t *testing.T) {
 	// Value-less tag (wildcard) matches any value
 	urn, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
@@ -1258,7 +1324,8 @@ func TestValuelessTagMatching(t *testing.T) {
 	assert.True(t, matches)
 }
 
-func TestValuelessTagInPattern(t *testing.T) {
+// TEST0069: Valueless tag in pattern
+func Test0069_ValuelessTagInPattern(t *testing.T) {
 	// Pattern with value-less tag (K=*) requires instance to have the tag
 	pattern, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
@@ -1291,7 +1358,8 @@ func TestValuelessTagInPattern(t *testing.T) {
 	assert.True(t, matches)
 }
 
-func TestValuelessTagSpecificity(t *testing.T) {
+// TEST0070: Valueless tag specificity
+func Test0070_ValuelessTagSpecificity(t *testing.T) {
 	// Six-form ladder: ?x=0, x?=v=1, x=*=2, x!=v=3, x=v=4, !x=5.
 	urn1, err := NewTaggedUrnFromString("cap:generate") // 1 marker (=*)
 	require.NoError(t, err)
@@ -1305,7 +1373,8 @@ func TestValuelessTagSpecificity(t *testing.T) {
 	assert.Equal(t, 6, urn3.Specificity()) // 1 marker + 1 exact = 2 + 4 = 6
 }
 
-func TestValuelessTagRoundtrip(t *testing.T) {
+// TEST0071: Valueless tag roundtrip
+func Test0071_ValuelessTagRoundtrip(t *testing.T) {
 	// Round-trip parsing and serialization
 	original := "cap:ext=pdf;generate;optimize;secure"
 	urn, err := NewTaggedUrnFromString(original)
@@ -1317,7 +1386,8 @@ func TestValuelessTagRoundtrip(t *testing.T) {
 	assert.Equal(t, original, serialized)
 }
 
-func TestValuelessTagCaseNormalization(t *testing.T) {
+// TEST0072: Valueless tag case normalization
+func Test0072_ValuelessTagCaseNormalization(t *testing.T) {
 	// Value-less tags are normalized to lowercase like other keys
 	urn, err := NewTaggedUrnFromString("cap:OPTIMIZE;Fast;SECURE")
 	require.NoError(t, err)
@@ -1337,7 +1407,8 @@ func TestValuelessTagCaseNormalization(t *testing.T) {
 	assert.Equal(t, "cap:fast;optimize;secure", urn.ToString())
 }
 
-func TestEmptyValueStillError(t *testing.T) {
+// TEST0073: Empty value still error
+func Test0073_EmptyValueStillError(t *testing.T) {
 	// Empty value with = is still an error (different from value-less)
 	urn, err := NewTaggedUrnFromString("cap:key=")
 	assert.Nil(t, urn)
@@ -1348,7 +1419,8 @@ func TestEmptyValueStillError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestValuelessTagCompatibility(t *testing.T) {
+// TEST0074: Valueless tag compatibility
+func Test0074_ValuelessTagCompatibility(t *testing.T) {
 	// TEST564: Value-less tag (ext=*) accepts any specific value
 	pattern, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
@@ -1376,7 +1448,8 @@ func TestValuelessTagCompatibility(t *testing.T) {
 	assert.False(t, accepts)
 }
 
-func TestValuelessNumericKeyStillRejected(t *testing.T) {
+// TEST0075: Valueless numeric key still rejected
+func Test0075_ValuelessNumericKeyStillRejected(t *testing.T) {
 	// Purely numeric keys are still rejected for value-less tags
 	urn, err := NewTaggedUrnFromString("cap:123")
 	assert.Nil(t, urn)
@@ -1387,7 +1460,8 @@ func TestValuelessNumericKeyStillRejected(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestWhitespaceInInputRejected(t *testing.T) {
+// TEST0076: Whitespace in input rejected
+func Test0076_WhitespaceInInputRejected(t *testing.T) {
 	// Leading whitespace fails hard
 	urn, err := NewTaggedUrnFromString(" cap:test")
 	assert.Nil(t, urn)
@@ -1432,7 +1506,7 @@ func TestWhitespaceInInputRejected(t *testing.T) {
 // NEW SEMANTICS TESTS: ? (unspecified) and ! (must-not-have)
 // ============================================================================
 
-func TestUnspecifiedQuestionMarkParsing(t *testing.T) {
+func Test0077_UnspecifiedQuestionMarkParsing(t *testing.T) {
 	// ? parses as unspecified
 	urn, err := NewTaggedUrnFromString("cap:ext=?")
 	require.NoError(t, err)
@@ -1445,7 +1519,8 @@ func TestUnspecifiedQuestionMarkParsing(t *testing.T) {
 	assert.Equal(t, "cap:?ext", urn.ToString())
 }
 
-func TestMustNotHaveExclamationParsing(t *testing.T) {
+// TEST0078: Must not have exclamation parsing
+func Test0078_MustNotHaveExclamationParsing(t *testing.T) {
 	urn, err := NewTaggedUrnFromString("cap:ext=!")
 	require.NoError(t, err)
 
@@ -1457,7 +1532,8 @@ func TestMustNotHaveExclamationParsing(t *testing.T) {
 	assert.Equal(t, "cap:!ext", urn.ToString())
 }
 
-func TestQuestionMarkPatternMatchesAnything(t *testing.T) {
+// TEST0079: Question mark pattern matches anything
+func Test0079_QuestionMarkPatternMatchesAnything(t *testing.T) {
 	// Pattern with K=? matches any instance (with or without K)
 	pattern, err := NewTaggedUrnFromString("cap:ext=?")
 	require.NoError(t, err)
@@ -1484,7 +1560,8 @@ func TestQuestionMarkPatternMatchesAnything(t *testing.T) {
 	assert.True(t, matches, "ext=! should match ext=?")
 }
 
-func TestQuestionMarkInInstance(t *testing.T) {
+// TEST0080: Question mark in instance
+func Test0080_QuestionMarkInInstance(t *testing.T) {
 	// Instance with K=? matches any pattern constraint
 	instance, err := NewTaggedUrnFromString("cap:ext=?")
 	require.NoError(t, err)
@@ -1511,7 +1588,8 @@ func TestQuestionMarkInInstance(t *testing.T) {
 	assert.True(t, matches, "ext=? should match (no ext)")
 }
 
-func TestMustNotHavePatternRequiresAbsent(t *testing.T) {
+// TEST0081: Must not have pattern requires absent
+func Test0081_MustNotHavePatternRequiresAbsent(t *testing.T) {
 	// Pattern with K=! requires instance to NOT have K
 	pattern, err := NewTaggedUrnFromString("cap:ext=!")
 	require.NoError(t, err)
@@ -1534,7 +1612,8 @@ func TestMustNotHavePatternRequiresAbsent(t *testing.T) {
 	assert.True(t, matches, "ext=! should match ext=!")
 }
 
-func TestMustNotHaveInInstance(t *testing.T) {
+// TEST0082: Must not have in instance
+func Test0082_MustNotHaveInInstance(t *testing.T) {
 	// Instance with K=! conflicts with patterns requiring K
 	instance, err := NewTaggedUrnFromString("cap:ext=!")
 	require.NoError(t, err)
@@ -1561,7 +1640,8 @@ func TestMustNotHaveInInstance(t *testing.T) {
 	assert.True(t, matches, "ext=! should match (no ext)")
 }
 
-func TestFullCrossProductMatching(t *testing.T) {
+// TEST0083: Full cross product matching
+func Test0083_FullCrossProductMatching(t *testing.T) {
 	// Comprehensive test of all instance/pattern combinations
 	check := func(instance, pattern string, expected bool, msg string) {
 		inst, err := NewTaggedUrnFromString(instance)
@@ -1610,7 +1690,8 @@ func TestFullCrossProductMatching(t *testing.T) {
 	check("cap:k=v", "cap:k=w", false, "K=v/K=w")
 }
 
-func TestMixedSpecialValues(t *testing.T) {
+// TEST0084: Mixed special values
+func Test0084_MixedSpecialValues(t *testing.T) {
 	// Test URNs with multiple special values
 	pattern, err := NewTaggedUrnFromString("cap:required;optional=?;forbidden=!;exact=pdf")
 	require.NoError(t, err)
@@ -1636,7 +1717,8 @@ func TestMixedSpecialValues(t *testing.T) {
 	assert.False(t, matches)
 }
 
-func TestSerializationRoundTripSpecialValues(t *testing.T) {
+// TEST0085: Serialization round trip special values
+func Test0085_SerializationRoundTripSpecialValues(t *testing.T) {
 	// All special values round-trip correctly
 	originals := []string{
 		"cap:ext=?",
@@ -1655,7 +1737,8 @@ func TestSerializationRoundTripSpecialValues(t *testing.T) {
 	}
 }
 
-func TestCompatibilityWithSpecialValues(t *testing.T) {
+// TEST0086: Compatibility with special values
+func Test0086_CompatibilityWithSpecialValues(t *testing.T) {
 	// TEST576: Compatibility via bidirectional accepts
 	mustNot, _ := NewTaggedUrnFromString("cap:ext=!")
 	mustHave, _ := NewTaggedUrnFromString("cap:ext=*")
@@ -1699,7 +1782,8 @@ func TestCompatibilityWithSpecialValues(t *testing.T) {
 	assert.True(t, biAccepts(unspecified, missing))
 }
 
-func TestSpecificityWithSpecialValues(t *testing.T) {
+// TEST0087: Specificity with special values
+func Test0087_SpecificityWithSpecialValues(t *testing.T) {
 	// Six-form ladder: ?x=0, x?=v=1, x=*=2, x!=v=3, x=v=4, !x=5.
 	exact, _ := NewTaggedUrnFromString("cap:a=x;b=y;c=z")    // 3 * 4 = 12
 	mustHave, _ := NewTaggedUrnFromString("cap:a;b;c")       // 3 * 2 = 6
@@ -1756,8 +1840,8 @@ func TestSpecificityWithSpecialValues(t *testing.T) {
 // ORDER-THEORETIC RELATIONS: IsEquivalent, IsComparable
 // =========================================================================
 
-// TEST578: Equivalent URNs with identical tag sets
-func Test_578_EquivalentIdenticalTags(t *testing.T) {
+// TEST0578: Equivalent URNs with identical tag sets
+func Test0578_EquivalentIdenticalTags(t *testing.T) {
 	a, _ := NewTaggedUrnFromString("cap:generate;ext=pdf")
 	b, _ := NewTaggedUrnFromString("cap:ext=pdf;generate") // same tags, different order
 	equiv, err := a.IsEquivalent(b)
@@ -1768,8 +1852,8 @@ func Test_578_EquivalentIdenticalTags(t *testing.T) {
 	assert.True(t, equiv)
 }
 
-// TEST579: Non-equivalent URNs where one is more specific
-func Test_579_NotEquivalentWhenOneMoreSpecific(t *testing.T) {
+// TEST0579: Non-equivalent URNs where one is more specific
+func Test0579_NotEquivalentWhenOneMoreSpecific(t *testing.T) {
 	general, _ := NewTaggedUrnFromString("media:")
 	specific, _ := NewTaggedUrnFromString("media:pdf")
 	equiv, err := general.IsEquivalent(specific)
@@ -1780,8 +1864,8 @@ func Test_579_NotEquivalentWhenOneMoreSpecific(t *testing.T) {
 	assert.False(t, equiv)
 }
 
-// TEST580: Comparable URNs on the same specialization chain
-func Test_580_ComparableSpecializationChain(t *testing.T) {
+// TEST0580: Comparable URNs on the same specialization chain
+func Test0580_ComparableSpecializationChain(t *testing.T) {
 	general, _ := NewTaggedUrnFromString("media:")
 	specific, _ := NewTaggedUrnFromString("media:pdf")
 	comp, err := general.IsComparable(specific)
@@ -1792,8 +1876,8 @@ func Test_580_ComparableSpecializationChain(t *testing.T) {
 	assert.True(t, comp)
 }
 
-// TEST581: Incomparable URNs in different branches of the lattice
-func Test_581_IncomparableDifferentBranches(t *testing.T) {
+// TEST0581: Incomparable URNs in different branches of the lattice
+func Test0581_IncomparableDifferentBranches(t *testing.T) {
 	pdf, _ := NewTaggedUrnFromString("media:pdf")
 	txt, _ := NewTaggedUrnFromString("media:txt;textable")
 	comp, err := pdf.IsComparable(txt)
@@ -1804,8 +1888,8 @@ func Test_581_IncomparableDifferentBranches(t *testing.T) {
 	assert.False(t, comp)
 }
 
-// TEST582: Equivalent implies comparable but not vice versa
-func Test_582_EquivalentImpliesComparable(t *testing.T) {
+// TEST0582: Equivalent implies comparable but not vice versa
+func Test0582_EquivalentImpliesComparable(t *testing.T) {
 	a, _ := NewTaggedUrnFromString("cap:test;ext=pdf")
 	b, _ := NewTaggedUrnFromString("cap:test;ext=pdf")
 	equiv, err := a.IsEquivalent(b)
@@ -1826,8 +1910,8 @@ func Test_582_EquivalentImpliesComparable(t *testing.T) {
 	assert.True(t, comp)
 }
 
-// TEST583: Prefix mismatch returns error for both relations
-func Test_583_PrefixMismatchErrors(t *testing.T) {
+// TEST0583: Prefix mismatch returns error for both relations
+func Test0583_PrefixMismatchErrors(t *testing.T) {
 	cap, _ := NewTaggedUrnFromString("cap:test")
 	media, _ := NewTaggedUrnFromString("media:")
 	_, err := cap.IsEquivalent(media)
@@ -1836,8 +1920,8 @@ func Test_583_PrefixMismatchErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TEST584: Empty tag set is comparable to everything with same prefix
-func Test_584_EmptyTagsComparableToAll(t *testing.T) {
+// TEST0584: Empty tag set is comparable to everything with same prefix
+func Test0584_EmptyTagsComparableToAll(t *testing.T) {
 	empty, _ := NewTaggedUrnFromString("media:")
 	specific, _ := NewTaggedUrnFromString("media:pdf;thumbnail")
 	comp, err := empty.IsComparable(specific)
@@ -1852,8 +1936,8 @@ func Test_584_EmptyTagsComparableToAll(t *testing.T) {
 	assert.True(t, equiv)
 }
 
-// TEST585: String variants of IsEquivalent and IsComparable
-func Test_585_StringVariants(t *testing.T) {
+// TEST0585: String variants of IsEquivalent and IsComparable
+func Test0585_StringVariants(t *testing.T) {
 	urn, _ := NewTaggedUrnFromString("media:pdf")
 	equiv, err := urn.IsEquivalentStr("media:pdf")
 	require.NoError(t, err)
@@ -1869,8 +1953,8 @@ func Test_585_StringVariants(t *testing.T) {
 	assert.False(t, comp)
 }
 
-// TEST586: Special values (*, !, ?) with IsEquivalent and IsComparable
-func Test_586_SpecialValues(t *testing.T) {
+// TEST0586: Special values (*, !, ?) with IsEquivalent and IsComparable
+func Test0586_SpecialValues(t *testing.T) {
 	mustHave, _ := NewTaggedUrnFromString("cap:ext")
 	exact, _ := NewTaggedUrnFromString("cap:ext=pdf")
 	mustNot, _ := NewTaggedUrnFromString("cap:ext=!")
@@ -1912,8 +1996,8 @@ func Test_586_SpecialValues(t *testing.T) {
 // BUILDER TESTS
 // =========================================================================
 
-// TEST587: Builder fluent API for tag manipulation
-func Test_587_BuilderFluentAPI(t *testing.T) {
+// TEST0587: Builder fluent API for tag manipulation
+func Test0587_BuilderFluentAPI(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Marker("generate").
 		Tag("target", "thumbnail").
@@ -1934,8 +2018,8 @@ func Test_587_BuilderFluentAPI(t *testing.T) {
 	assert.Equal(t, "binary", val)
 }
 
-// TEST588: Builder with custom tags
-func Test_588_BuilderCustomTags(t *testing.T) {
+// TEST0588: Builder with custom tags
+func Test0588_BuilderCustomTags(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Tag("engine", "v2").
 		Tag("quality", "high").
@@ -1951,8 +2035,8 @@ func Test_588_BuilderCustomTags(t *testing.T) {
 	assert.Equal(t, "compress", val)
 }
 
-// TEST589: Builder tag overrides
-func Test_589_BuilderTagOverrides(t *testing.T) {
+// TEST0589: Builder tag overrides
+func Test0589_BuilderTagOverrides(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Tag("op", "convert").
 		Tag("format", "jpg").
@@ -1965,14 +2049,14 @@ func Test_589_BuilderTagOverrides(t *testing.T) {
 	assert.Equal(t, "jpg", val)
 }
 
-// TEST590: Builder empty build returns error
-func Test_590_BuilderEmptyBuild(t *testing.T) {
+// TEST0590: Builder empty build returns error
+func Test0590_BuilderEmptyBuild(t *testing.T) {
 	_, err := NewTaggedUrnBuilder("cap").Build()
 	assert.Error(t, err)
 }
 
-// TEST591: Builder with single tag
-func Test_591_BuilderSingleTag(t *testing.T) {
+// TEST0591: Builder with single tag
+func Test0591_BuilderSingleTag(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").Tag("type", "utility").Build()
 	require.NoError(t, err)
 
@@ -1983,8 +2067,8 @@ func Test_591_BuilderSingleTag(t *testing.T) {
 	assert.Equal(t, 4, urn.Specificity())
 }
 
-// TEST592: Builder with complex multi-tag URN
-func Test_592_BuilderComplex(t *testing.T) {
+// TEST0592: Builder with complex multi-tag URN
+func Test0592_BuilderComplex(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Tag("type", "media").
 		Marker("transcode").
@@ -2009,8 +2093,8 @@ func Test_592_BuilderComplex(t *testing.T) {
 	assert.Equal(t, 30, urn.Specificity())
 }
 
-// TEST593: Builder with wildcards
-func Test_593_BuilderWildcards(t *testing.T) {
+// TEST0593: Builder with wildcards
+func Test0593_BuilderWildcards(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("cap").
 		Marker("convert").
 		Marker("ext").
@@ -2027,8 +2111,8 @@ func Test_593_BuilderWildcards(t *testing.T) {
 	assert.Equal(t, "*", val)
 }
 
-// TEST594: Builder with custom prefix
-func Test_594_BuilderCustomPrefix(t *testing.T) {
+// TEST0594: Builder with custom prefix
+func Test0594_BuilderCustomPrefix(t *testing.T) {
 	urn, err := NewTaggedUrnBuilder("myapp").Tag("key", "value").Build()
 	require.NoError(t, err)
 
@@ -2036,8 +2120,8 @@ func Test_594_BuilderCustomPrefix(t *testing.T) {
 	assert.Equal(t, "myapp:key=value", urn.ToString())
 }
 
-// TEST595: Builder matching with built URN
-func Test_595_BuilderMatchingWithBuiltUrn(t *testing.T) {
+// TEST0595: Builder matching with built URN
+func Test0595_BuilderMatchingWithBuiltUrn(t *testing.T) {
 	specificInstance, _ := NewTaggedUrnBuilder("cap").
 		Tag("op", "generate").
 		Tag("target", "thumbnail").
@@ -2071,7 +2155,7 @@ func Test_595_BuilderMatchingWithBuiltUrn(t *testing.T) {
 }
 
 // TEST: Builder rejects empty value
-func Test_BuilderRejectsEmptyValue(t *testing.T) {
+func Test0088_BuilderRejectsEmptyValue(t *testing.T) {
 	_, err := NewTaggedUrnBuilder("cap").Tag("key", "").Build()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty value")
