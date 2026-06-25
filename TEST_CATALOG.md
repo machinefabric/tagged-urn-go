@@ -2,13 +2,13 @@
 
 **Total Tests:** 106
 
-**Numbered Tests:** 0
+**Numbered Tests:** 106
 
-**Unnumbered Tests:** 106
+**Unnumbered Tests:** 0
 
 **Numbered Tests Missing Descriptions:** 0
 
-**Numbering Mismatches:** 18
+**Numbering Mismatches:** 0
 
 All numbered test numbers are unique.
 
@@ -16,256 +16,117 @@ This catalog lists all tests in the Go codebase.
 
 | Test # | Function Name | Description | File |
 |--------|---------------|-------------|------|
-| | | | |
-| unnumbered | `TestBuilder` |  | tagged_urn_test.go:332 |
-| unnumbered | `TestBuilderPreservesCase` |  | tagged_urn_test.go:759 |
-| unnumbered | `TestBuilderWithPrefix` |  | tagged_urn_test.go:67 |
-| unnumbered | `TestCanonicalStringFormat` |  | tagged_urn_test.go:77 |
-| unnumbered | `TestCompatibility` |  | tagged_urn_test.go:281 |
-| unnumbered | `TestCompatibilityWithSpecialValues` |  | tagged_urn_test.go:1658 |
-| unnumbered | `TestConvenienceMethods` |  | tagged_urn_test.go:313 |
-| unnumbered | `TestCustomPrefix` |  | tagged_urn_test.go:30 |
-| unnumbered | `TestDuplicateKeyRejection` |  | tagged_urn_test.go:890 |
-| unnumbered | `TestEmptyTaggedUrn` |  | tagged_urn_test.go:812 |
-| unnumbered | `TestEmptyValueError` |  | tagged_urn_test.go:928 |
-| unnumbered | `TestEmptyValueStillError` |  | tagged_urn_test.go:1340 |
-| unnumbered | `TestEmptyWithCustomPrefix` |  | tagged_urn_test.go:849 |
-| unnumbered | `TestEquality` |  | tagged_urn_test.go:431 |
-| unnumbered | `TestEqualityDifferentPrefix` |  | tagged_urn_test.go:445 |
-| unnumbered | `TestExtendedCharacterSupport` |  | tagged_urn_test.go:856 |
-| unnumbered | `TestFullCrossProductMatching` |  | tagged_urn_test.go:1564 |
-| unnumbered | `TestHasTagCaseSensitive` |  | tagged_urn_test.go:774 |
-| unnumbered | `TestInvalidCharacters` |  | tagged_urn_test.go:157 |
-| unnumbered | `TestInvalidEscapeSequenceError` |  | tagged_urn_test.go:651 |
-| unnumbered | `TestInvalidTaggedUrn` |  | tagged_urn_test.go:137 |
-| unnumbered | `TestJSONSerialization` |  | tagged_urn_test.go:499 |
-| unnumbered | `TestJSONSerializationWithCustomPrefix` |  | tagged_urn_test.go:513 |
-| unnumbered | `TestMatchingCaseSensitiveValues` |  | tagged_urn_test.go:736 |
-| unnumbered | `TestMatchingDifferentPrefixesError` |  | tagged_urn_test.go:938 |
-| unnumbered | `TestMatchingSemantics_Test1_ExactMatch` | MATCHING SEMANTICS SPECIFICATION TESTS These 9 tests verify the exact matching semantics from RULES.md Sections 12-17 All implementations (Rust, Go, JS, ObjC) must pass these identically | tagged_urn_test.go:961 |
-| unnumbered | `TestMatchingSemantics_Test2_InstanceMissingTag` |  | tagged_urn_test.go:977 |
-| unnumbered | `TestMatchingSemantics_Test3_UrnHasExtraTag` |  | tagged_urn_test.go:1003 |
-| unnumbered | `TestMatchingSemantics_Test4_RequestHasWildcard` |  | tagged_urn_test.go:1019 |
-| unnumbered | `TestMatchingSemantics_Test5_UrnHasWildcard` |  | tagged_urn_test.go:1035 |
-| unnumbered | `TestMatchingSemantics_Test6_ValueMismatch` |  | tagged_urn_test.go:1051 |
-| unnumbered | `TestMatchingSemantics_Test7_PatternHasExtraTag` |  | tagged_urn_test.go:1067 |
-| unnumbered | `TestMatchingSemantics_Test8_EmptyPatternMatchesAnything` |  | tagged_urn_test.go:1092 |
-| unnumbered | `TestMatchingSemantics_Test9_CrossDimensionConstraints` |  | tagged_urn_test.go:1120 |
-| unnumbered | `TestMerge` |  | tagged_urn_test.go:404 |
-| unnumbered | `TestMergePrefixMismatch` |  | tagged_urn_test.go:417 |
-| unnumbered | `TestMissingTagHandling` |  | tagged_urn_test.go:198 |
-| unnumbered | `TestMixedQuotedUnquoted` |  | tagged_urn_test.go:629 |
-| unnumbered | `TestMixedSpecialValues` |  | tagged_urn_test.go:1613 |
-| unnumbered | `TestMustNotHaveExclamationParsing` |  | tagged_urn_test.go:1448 |
-| unnumbered | `TestMustNotHaveInInstance` |  | tagged_urn_test.go:1537 |
-| unnumbered | `TestMustNotHavePatternRequiresAbsent` |  | tagged_urn_test.go:1514 |
-| unnumbered | `TestNumericKeyRestriction` |  | tagged_urn_test.go:900 |
-| unnumbered | `TestPrefixCaseInsensitive` |  | tagged_urn_test.go:39 |
-| unnumbered | `TestPrefixMismatchError` |  | tagged_urn_test.go:54 |
-| unnumbered | `TestPrefixRequired` |  | tagged_urn_test.go:85 |
-| unnumbered | `TestQuestionMarkInInstance` |  | tagged_urn_test.go:1487 |
-| unnumbered | `TestQuestionMarkPatternMatchesAnything` |  | tagged_urn_test.go:1460 |
-| unnumbered | `TestQuotedValueEscapeSequences` |  | tagged_urn_test.go:606 |
-| unnumbered | `TestQuotedValueSpecialChars` |  | tagged_urn_test.go:583 |
-| unnumbered | `TestQuotedValuesPreserveCase` |  | tagged_urn_test.go:555 |
-| unnumbered | `TestRoundTripEscapes` |  | tagged_urn_test.go:723 |
-| unnumbered | `TestRoundTripQuoted` |  | tagged_urn_test.go:710 |
-| unnumbered | `TestRoundTripSimple` |  | tagged_urn_test.go:700 |
-| unnumbered | `TestSemanticEquivalence` |  | tagged_urn_test.go:799 |
-| unnumbered | `TestSerializationRoundTripSpecialValues` |  | tagged_urn_test.go:1639 |
-| unnumbered | `TestSerializationSmartQuoting` |  | tagged_urn_test.go:668 |
-| unnumbered | `TestSpecificity` |  | tagged_urn_test.go:238 |
-| unnumbered | `TestSpecificityWithSpecialValues` |  | tagged_urn_test.go:1702 |
-| unnumbered | `TestSubset` |  | tagged_urn_test.go:395 |
-| unnumbered | `TestTagMatching` |  | tagged_urn_test.go:165 |
-| unnumbered | `TestTaggedUrnCreation` |  | tagged_urn_test.go:11 |
-| unnumbered | `TestTrailingSemicolonEquivalence` |  | tagged_urn_test.go:110 |
-| unnumbered | `TestUnquotedValuesLowercased` |  | tagged_urn_test.go:527 |
-| unnumbered | `TestUnspecifiedQuestionMarkParsing` | NEW SEMANTICS TESTS: ? (unspecified) and ! (must-not-have) | tagged_urn_test.go:1435 |
-| unnumbered | `TestUnterminatedQuoteError` |  | tagged_urn_test.go:642 |
-| unnumbered | `TestUrnMatcher` |  | tagged_urn_test.go:455 |
-| unnumbered | `TestUrnMatcherPrefixMismatch` |  | tagged_urn_test.go:483 |
-| unnumbered | `TestValuelessNumericKeyStillRejected` |  | tagged_urn_test.go:1379 |
-| unnumbered | `TestValuelessTagAtEnd` |  | tagged_urn_test.go:1208 |
-| unnumbered | `TestValuelessTagCaseNormalization` |  | tagged_urn_test.go:1320 |
-| unnumbered | `TestValuelessTagCompatibility` |  | tagged_urn_test.go:1351 |
-| unnumbered | `TestValuelessTagEquivalenceToWildcard` |  | tagged_urn_test.go:1222 |
-| unnumbered | `TestValuelessTagInPattern` |  | tagged_urn_test.go:1261 |
-| unnumbered | `TestValuelessTagMatching` |  | tagged_urn_test.go:1236 |
-| unnumbered | `TestValuelessTagMixedWithValued` |  | tagged_urn_test.go:1185 |
-| unnumbered | `TestValuelessTagParsing` |  | tagged_urn_test.go:145 |
-| unnumbered | `TestValuelessTagParsingMultiple` |  | tagged_urn_test.go:1164 |
-| unnumbered | `TestValuelessTagParsingSingle` | VALUE-LESS TAG TESTS Value-less tags are equivalent to wildcard tags (key=*) | tagged_urn_test.go:1152 |
-| unnumbered | `TestValuelessTagRoundtrip` |  | tagged_urn_test.go:1308 |
-| unnumbered | `TestValuelessTagSpecificity` |  | tagged_urn_test.go:1294 |
-| unnumbered | `TestWhitespaceInInputRejected` |  | tagged_urn_test.go:1390 |
-| unnumbered | `TestWildcardRestrictions` |  | tagged_urn_test.go:871 |
-| unnumbered | `TestWildcardTag` |  | tagged_urn_test.go:372 |
-| unnumbered | `TestWithTag` |  | tagged_urn_test.go:348 |
-| unnumbered | `TestWithTagPreservesValue` |  | tagged_urn_test.go:790 |
-| unnumbered | `TestWithoutTag` |  | tagged_urn_test.go:360 |
-| unnumbered | `Test_578_EquivalentIdenticalTags` | TEST578: Equivalent URNs with identical tag sets | tagged_urn_test.go:1760 |
-| unnumbered | `Test_579_NotEquivalentWhenOneMoreSpecific` | TEST579: Non-equivalent URNs where one is more specific | tagged_urn_test.go:1772 |
-| unnumbered | `Test_580_ComparableSpecializationChain` | TEST580: Comparable URNs on the same specialization chain | tagged_urn_test.go:1784 |
-| unnumbered | `Test_581_IncomparableDifferentBranches` | TEST581: Incomparable URNs in different branches of the lattice | tagged_urn_test.go:1796 |
-| unnumbered | `Test_582_EquivalentImpliesComparable` | TEST582: Equivalent implies comparable but not vice versa | tagged_urn_test.go:1808 |
-| unnumbered | `Test_583_PrefixMismatchErrors` | TEST583: Prefix mismatch returns error for both relations | tagged_urn_test.go:1830 |
-| unnumbered | `Test_584_EmptyTagsComparableToAll` | TEST584: Empty tag set is comparable to everything with same prefix | tagged_urn_test.go:1840 |
-| unnumbered | `Test_585_StringVariants` | TEST585: String variants of IsEquivalent and IsComparable | tagged_urn_test.go:1856 |
-| unnumbered | `Test_586_SpecialValues` | TEST586: Special values (*, !, ?) with IsEquivalent and IsComparable | tagged_urn_test.go:1873 |
-| unnumbered | `Test_587_BuilderFluentAPI` | TEST587: Builder fluent API for tag manipulation | tagged_urn_test.go:1916 |
-| unnumbered | `Test_588_BuilderCustomTags` | TEST588: Builder with custom tags | tagged_urn_test.go:1938 |
-| unnumbered | `Test_589_BuilderTagOverrides` | TEST589: Builder tag overrides | tagged_urn_test.go:1955 |
-| unnumbered | `Test_590_BuilderEmptyBuild` | TEST590: Builder empty build returns error | tagged_urn_test.go:1969 |
-| unnumbered | `Test_591_BuilderSingleTag` | TEST591: Builder with single tag | tagged_urn_test.go:1975 |
-| unnumbered | `Test_592_BuilderComplex` | TEST592: Builder with complex multi-tag URN | tagged_urn_test.go:1987 |
-| unnumbered | `Test_593_BuilderWildcards` | TEST593: Builder with wildcards | tagged_urn_test.go:2013 |
-| unnumbered | `Test_594_BuilderCustomPrefix` | TEST594: Builder with custom prefix | tagged_urn_test.go:2031 |
-| unnumbered | `Test_595_BuilderMatchingWithBuiltUrn` | TEST595: Builder matching with built URN | tagged_urn_test.go:2040 |
-| unnumbered | `Test_BuilderRejectsEmptyValue` | TEST: Builder rejects empty value | tagged_urn_test.go:2074 |
----
-
-## Unnumbered Tests
-
-The following tests are cataloged but do not currently participate in numeric test indexing.
-
-- `TestBuilder` — tagged_urn_test.go:332
-- `TestBuilderPreservesCase` — tagged_urn_test.go:759
-- `TestBuilderWithPrefix` — tagged_urn_test.go:67
-- `TestCanonicalStringFormat` — tagged_urn_test.go:77
-- `TestCompatibility` — tagged_urn_test.go:281
-- `TestCompatibilityWithSpecialValues` — tagged_urn_test.go:1658
-- `TestConvenienceMethods` — tagged_urn_test.go:313
-- `TestCustomPrefix` — tagged_urn_test.go:30
-- `TestDuplicateKeyRejection` — tagged_urn_test.go:890
-- `TestEmptyTaggedUrn` — tagged_urn_test.go:812
-- `TestEmptyValueError` — tagged_urn_test.go:928
-- `TestEmptyValueStillError` — tagged_urn_test.go:1340
-- `TestEmptyWithCustomPrefix` — tagged_urn_test.go:849
-- `TestEquality` — tagged_urn_test.go:431
-- `TestEqualityDifferentPrefix` — tagged_urn_test.go:445
-- `TestExtendedCharacterSupport` — tagged_urn_test.go:856
-- `TestFullCrossProductMatching` — tagged_urn_test.go:1564
-- `TestHasTagCaseSensitive` — tagged_urn_test.go:774
-- `TestInvalidCharacters` — tagged_urn_test.go:157
-- `TestInvalidEscapeSequenceError` — tagged_urn_test.go:651
-- `TestInvalidTaggedUrn` — tagged_urn_test.go:137
-- `TestJSONSerialization` — tagged_urn_test.go:499
-- `TestJSONSerializationWithCustomPrefix` — tagged_urn_test.go:513
-- `TestMatchingCaseSensitiveValues` — tagged_urn_test.go:736
-- `TestMatchingDifferentPrefixesError` — tagged_urn_test.go:938
-- `TestMatchingSemantics_Test1_ExactMatch` — tagged_urn_test.go:961
-- `TestMatchingSemantics_Test2_InstanceMissingTag` — tagged_urn_test.go:977
-- `TestMatchingSemantics_Test3_UrnHasExtraTag` — tagged_urn_test.go:1003
-- `TestMatchingSemantics_Test4_RequestHasWildcard` — tagged_urn_test.go:1019
-- `TestMatchingSemantics_Test5_UrnHasWildcard` — tagged_urn_test.go:1035
-- `TestMatchingSemantics_Test6_ValueMismatch` — tagged_urn_test.go:1051
-- `TestMatchingSemantics_Test7_PatternHasExtraTag` — tagged_urn_test.go:1067
-- `TestMatchingSemantics_Test8_EmptyPatternMatchesAnything` — tagged_urn_test.go:1092
-- `TestMatchingSemantics_Test9_CrossDimensionConstraints` — tagged_urn_test.go:1120
-- `TestMerge` — tagged_urn_test.go:404
-- `TestMergePrefixMismatch` — tagged_urn_test.go:417
-- `TestMissingTagHandling` — tagged_urn_test.go:198
-- `TestMixedQuotedUnquoted` — tagged_urn_test.go:629
-- `TestMixedSpecialValues` — tagged_urn_test.go:1613
-- `TestMustNotHaveExclamationParsing` — tagged_urn_test.go:1448
-- `TestMustNotHaveInInstance` — tagged_urn_test.go:1537
-- `TestMustNotHavePatternRequiresAbsent` — tagged_urn_test.go:1514
-- `TestNumericKeyRestriction` — tagged_urn_test.go:900
-- `TestPrefixCaseInsensitive` — tagged_urn_test.go:39
-- `TestPrefixMismatchError` — tagged_urn_test.go:54
-- `TestPrefixRequired` — tagged_urn_test.go:85
-- `TestQuestionMarkInInstance` — tagged_urn_test.go:1487
-- `TestQuestionMarkPatternMatchesAnything` — tagged_urn_test.go:1460
-- `TestQuotedValueEscapeSequences` — tagged_urn_test.go:606
-- `TestQuotedValueSpecialChars` — tagged_urn_test.go:583
-- `TestQuotedValuesPreserveCase` — tagged_urn_test.go:555
-- `TestRoundTripEscapes` — tagged_urn_test.go:723
-- `TestRoundTripQuoted` — tagged_urn_test.go:710
-- `TestRoundTripSimple` — tagged_urn_test.go:700
-- `TestSemanticEquivalence` — tagged_urn_test.go:799
-- `TestSerializationRoundTripSpecialValues` — tagged_urn_test.go:1639
-- `TestSerializationSmartQuoting` — tagged_urn_test.go:668
-- `TestSpecificity` — tagged_urn_test.go:238
-- `TestSpecificityWithSpecialValues` — tagged_urn_test.go:1702
-- `TestSubset` — tagged_urn_test.go:395
-- `TestTagMatching` — tagged_urn_test.go:165
-- `TestTaggedUrnCreation` — tagged_urn_test.go:11
-- `TestTrailingSemicolonEquivalence` — tagged_urn_test.go:110
-- `TestUnquotedValuesLowercased` — tagged_urn_test.go:527
-- `TestUnspecifiedQuestionMarkParsing` — tagged_urn_test.go:1435
-- `TestUnterminatedQuoteError` — tagged_urn_test.go:642
-- `TestUrnMatcher` — tagged_urn_test.go:455
-- `TestUrnMatcherPrefixMismatch` — tagged_urn_test.go:483
-- `TestValuelessNumericKeyStillRejected` — tagged_urn_test.go:1379
-- `TestValuelessTagAtEnd` — tagged_urn_test.go:1208
-- `TestValuelessTagCaseNormalization` — tagged_urn_test.go:1320
-- `TestValuelessTagCompatibility` — tagged_urn_test.go:1351
-- `TestValuelessTagEquivalenceToWildcard` — tagged_urn_test.go:1222
-- `TestValuelessTagInPattern` — tagged_urn_test.go:1261
-- `TestValuelessTagMatching` — tagged_urn_test.go:1236
-- `TestValuelessTagMixedWithValued` — tagged_urn_test.go:1185
-- `TestValuelessTagParsing` — tagged_urn_test.go:145
-- `TestValuelessTagParsingMultiple` — tagged_urn_test.go:1164
-- `TestValuelessTagParsingSingle` — tagged_urn_test.go:1152
-- `TestValuelessTagRoundtrip` — tagged_urn_test.go:1308
-- `TestValuelessTagSpecificity` — tagged_urn_test.go:1294
-- `TestWhitespaceInInputRejected` — tagged_urn_test.go:1390
-- `TestWildcardRestrictions` — tagged_urn_test.go:871
-- `TestWildcardTag` — tagged_urn_test.go:372
-- `TestWithTag` — tagged_urn_test.go:348
-- `TestWithTagPreservesValue` — tagged_urn_test.go:790
-- `TestWithoutTag` — tagged_urn_test.go:360
-- `Test_578_EquivalentIdenticalTags` — tagged_urn_test.go:1760
-- `Test_579_NotEquivalentWhenOneMoreSpecific` — tagged_urn_test.go:1772
-- `Test_580_ComparableSpecializationChain` — tagged_urn_test.go:1784
-- `Test_581_IncomparableDifferentBranches` — tagged_urn_test.go:1796
-- `Test_582_EquivalentImpliesComparable` — tagged_urn_test.go:1808
-- `Test_583_PrefixMismatchErrors` — tagged_urn_test.go:1830
-- `Test_584_EmptyTagsComparableToAll` — tagged_urn_test.go:1840
-- `Test_585_StringVariants` — tagged_urn_test.go:1856
-- `Test_586_SpecialValues` — tagged_urn_test.go:1873
-- `Test_587_BuilderFluentAPI` — tagged_urn_test.go:1916
-- `Test_588_BuilderCustomTags` — tagged_urn_test.go:1938
-- `Test_589_BuilderTagOverrides` — tagged_urn_test.go:1955
-- `Test_590_BuilderEmptyBuild` — tagged_urn_test.go:1969
-- `Test_591_BuilderSingleTag` — tagged_urn_test.go:1975
-- `Test_592_BuilderComplex` — tagged_urn_test.go:1987
-- `Test_593_BuilderWildcards` — tagged_urn_test.go:2013
-- `Test_594_BuilderCustomPrefix` — tagged_urn_test.go:2031
-- `Test_595_BuilderMatchingWithBuiltUrn` — tagged_urn_test.go:2040
-- `Test_BuilderRejectsEmptyValue` — tagged_urn_test.go:2074
-
----
-
-## Numbering Mismatches
-
-These tests have a numbering disagreement between the function name and the authoritative immediate TEST comment/docstring above the test. This is reported explicitly so comment sync does not silently overwrite a misnumbered test.
-
-- `unnumbered` / `test578` / `Test_578_EquivalentIdenticalTags` — tagged_urn_test.go:1760
-- `unnumbered` / `test579` / `Test_579_NotEquivalentWhenOneMoreSpecific` — tagged_urn_test.go:1772
-- `unnumbered` / `test580` / `Test_580_ComparableSpecializationChain` — tagged_urn_test.go:1784
-- `unnumbered` / `test581` / `Test_581_IncomparableDifferentBranches` — tagged_urn_test.go:1796
-- `unnumbered` / `test582` / `Test_582_EquivalentImpliesComparable` — tagged_urn_test.go:1808
-- `unnumbered` / `test583` / `Test_583_PrefixMismatchErrors` — tagged_urn_test.go:1830
-- `unnumbered` / `test584` / `Test_584_EmptyTagsComparableToAll` — tagged_urn_test.go:1840
-- `unnumbered` / `test585` / `Test_585_StringVariants` — tagged_urn_test.go:1856
-- `unnumbered` / `test586` / `Test_586_SpecialValues` — tagged_urn_test.go:1873
-- `unnumbered` / `test587` / `Test_587_BuilderFluentAPI` — tagged_urn_test.go:1916
-- `unnumbered` / `test588` / `Test_588_BuilderCustomTags` — tagged_urn_test.go:1938
-- `unnumbered` / `test589` / `Test_589_BuilderTagOverrides` — tagged_urn_test.go:1955
-- `unnumbered` / `test590` / `Test_590_BuilderEmptyBuild` — tagged_urn_test.go:1969
-- `unnumbered` / `test591` / `Test_591_BuilderSingleTag` — tagged_urn_test.go:1975
-- `unnumbered` / `test592` / `Test_592_BuilderComplex` — tagged_urn_test.go:1987
-- `unnumbered` / `test593` / `Test_593_BuilderWildcards` — tagged_urn_test.go:2013
-- `unnumbered` / `test594` / `Test_594_BuilderCustomPrefix` — tagged_urn_test.go:2031
-- `unnumbered` / `test595` / `Test_595_BuilderMatchingWithBuiltUrn` — tagged_urn_test.go:2040
-
+| test0001 | `Test0001_TaggedUrnCreation` | TEST0001: Tagged urn creation | tagged_urn_test.go:12 |
+| test0002 | `Test0002_CustomPrefix` | TEST0002: Custom prefix | tagged_urn_test.go:32 |
+| test0003 | `Test0003_PrefixCaseInsensitive` | TEST0003: Prefix case insensitive | tagged_urn_test.go:42 |
+| test0004 | `Test0004_PrefixMismatchError` | TEST0004: Prefix mismatch error | tagged_urn_test.go:58 |
+| test0005 | `Test0005_BuilderWithPrefix` | TEST0005: Builder with prefix | tagged_urn_test.go:72 |
+| test0006 | `Test0006_CanonicalStringFormat` | TEST0006: Canonical string format | tagged_urn_test.go:83 |
+| test0007 | `Test0007_PrefixRequired` | TEST0007: Prefix required | tagged_urn_test.go:92 |
+| test0008 | `Test0008_TrailingSemicolonEquivalence` | TEST0008: Trailing semicolon equivalence | tagged_urn_test.go:118 |
+| test0009 | `Test0009_InvalidTaggedUrn` | TEST0009: Invalid tagged urn | tagged_urn_test.go:146 |
+| test0010 | `Test0010_ValuelessTagParsing` | TEST0010: Valueless tag parsing | tagged_urn_test.go:155 |
+| test0011 | `Test0011_InvalidCharacters` | TEST0011: Invalid characters | tagged_urn_test.go:168 |
+| test0012 | `Test0012_TagMatching` | TEST0012: Tag matching | tagged_urn_test.go:177 |
+| test0013 | `Test0013_MissingTagHandling` | TEST0013: Missing tag handling | tagged_urn_test.go:211 |
+| test0014 | `Test0014_Specificity` | TEST0014: Specificity | tagged_urn_test.go:252 |
+| test0015 | `Test0015_Compatibility` | TEST0015: Compatibility | tagged_urn_test.go:296 |
+| test0016 | `Test0016_ConvenienceMethods` | TEST0016: Convenience methods | tagged_urn_test.go:329 |
+| test0017 | `Test0017_Builder` | TEST0017: Builder | tagged_urn_test.go:349 |
+| test0018 | `Test0018_WithTag` | TEST0018: With tag | tagged_urn_test.go:366 |
+| test0019 | `Test0019_WithoutTag` | TEST0019: Without tag | tagged_urn_test.go:379 |
+| test0020 | `Test0020_WildcardTag` | TEST0020: Wildcard tag | tagged_urn_test.go:392 |
+| test0021 | `Test0021_Subset` | TEST0021: Subset | tagged_urn_test.go:416 |
+| test0022 | `Test0022_Merge` | TEST0022: Merge | tagged_urn_test.go:426 |
+| test0023 | `Test0023_MergePrefixMismatch` | TEST0023: Merge prefix mismatch | tagged_urn_test.go:440 |
+| test0024 | `Test0024_Equality` | TEST0024: Equality | tagged_urn_test.go:455 |
+| test0025 | `Test0025_EqualityDifferentPrefix` | TEST0025: Equality different prefix | tagged_urn_test.go:470 |
+| test0026 | `Test0026_UrnMatcher` | TEST0026: Urn matcher | tagged_urn_test.go:481 |
+| test0027 | `Test0027_UrnMatcherPrefixMismatch` | TEST0027: Urn matcher prefix mismatch | tagged_urn_test.go:510 |
+| test0028 | `Test0028_JSONSerialization` | TEST0028: J s o n serialization | tagged_urn_test.go:527 |
+| test0029 | `Test0029_JSONSerializationWithCustomPrefix` | TEST0029: J s o n serialization with custom prefix | tagged_urn_test.go:542 |
+| test0030 | `Test0030_UnquotedValuesLowercased` | TEST0030: Unquoted values lowercased | tagged_urn_test.go:557 |
+| test0031 | `Test0031_QuotedValuesPreserveCase` | TEST0031: Quoted values preserve case | tagged_urn_test.go:586 |
+| test0032 | `Test0032_QuotedValueSpecialChars` | TEST0032: Quoted value special chars | tagged_urn_test.go:615 |
+| test0033 | `Test0033_QuotedValueEscapeSequences` | TEST0033: Quoted value escape sequences | tagged_urn_test.go:639 |
+| test0034 | `Test0034_MixedQuotedUnquoted` | TEST0034: Mixed quoted unquoted | tagged_urn_test.go:663 |
+| test0035 | `Test0035_UnterminatedQuoteError` | TEST0035: Unterminated quote error | tagged_urn_test.go:677 |
+| test0036 | `Test0036_InvalidEscapeSequenceError` | TEST0036: Invalid escape sequence error | tagged_urn_test.go:687 |
+| test0037 | `Test0037_SerializationSmartQuoting` | TEST0037: Serialization smart quoting | tagged_urn_test.go:705 |
+| test0038 | `Test0038_RoundTripSimple` | TEST0038: Round trip simple | tagged_urn_test.go:738 |
+| test0039 | `Test0039_RoundTripQuoted` | TEST0039: Round trip quoted | tagged_urn_test.go:749 |
+| test0040 | `Test0040_RoundTripEscapes` | TEST0040: Round trip escapes | tagged_urn_test.go:763 |
+| test0041 | `Test0041_MatchingCaseSensitiveValues` | TEST0041: Matching case sensitive values | tagged_urn_test.go:777 |
+| test0042 | `Test0042_BuilderPreservesCase` | TEST0042: Builder preserves case | tagged_urn_test.go:801 |
+| test0043 | `Test0043_HasTagCaseSensitive` | TEST0043: Has tag case sensitive | tagged_urn_test.go:817 |
+| test0044 | `Test0044_WithTagPreservesValue` | TEST0044: With tag preserves value | tagged_urn_test.go:834 |
+| test0045 | `Test0045_SemanticEquivalence` | TEST0045: Semantic equivalence | tagged_urn_test.go:844 |
+| test0046 | `Test0046_EmptyTaggedUrn` | TEST0046: Empty tagged urn | tagged_urn_test.go:858 |
+| test0047 | `Test0047_EmptyWithCustomPrefix` | TEST0047: Empty with custom prefix | tagged_urn_test.go:896 |
+| test0048 | `Test0048_ExtendedCharacterSupport` | TEST0048: Extended character support | tagged_urn_test.go:904 |
+| test0049 | `Test0049_WildcardRestrictions` | TEST0049: Wildcard restrictions | tagged_urn_test.go:920 |
+| test0050 | `Test0050_DuplicateKeyRejection` | TEST0050: Duplicate key rejection | tagged_urn_test.go:940 |
+| test0051 | `Test0051_NumericKeyRestriction` | TEST0051: Numeric key restriction | tagged_urn_test.go:951 |
+| test0052 | `Test0052_EmptyValueError` | TEST0052: Empty value error | tagged_urn_test.go:980 |
+| test0053 | `Test0053_MatchingDifferentPrefixesError` | TEST0053: Matching different prefixes error | tagged_urn_test.go:991 |
+| test0054 | `Test0054_MatchingSemantics_Test1_ExactMatch` | MATCHING SEMANTICS SPECIFICATION TESTS These 9 tests verify the exact matching semantics from RULES.md Sections 12-17 All implementations (Rust, Go, JS, ObjC) must pass these identically | tagged_urn_test.go:1014 |
+| test0055 | `Test0055_MatchingSemantics_Test2_InstanceMissingTag` | TEST0055: Matching semantics  test2  instance missing tag | tagged_urn_test.go:1031 |
+| test0056 | `Test0056_MatchingSemantics_Test3_UrnHasExtraTag` | TEST0056: Matching semantics  test3  urn has extra tag | tagged_urn_test.go:1058 |
+| test0057 | `Test0057_MatchingSemantics_Test4_RequestHasWildcard` | TEST0057: Matching semantics  test4  request has wildcard | tagged_urn_test.go:1075 |
+| test0058 | `Test0058_MatchingSemantics_Test5_UrnHasWildcard` | TEST0058: Matching semantics  test5  urn has wildcard | tagged_urn_test.go:1092 |
+| test0059 | `Test0059_MatchingSemantics_Test6_ValueMismatch` | TEST0059: Matching semantics  test6  value mismatch | tagged_urn_test.go:1109 |
+| test0060 | `Test0060_MatchingSemantics_Test7_PatternHasExtraTag` | TEST0060: Matching semantics  test7  pattern has extra tag | tagged_urn_test.go:1126 |
+| test0061 | `Test0061_MatchingSemantics_Test8_EmptyPatternMatchesAnything` | TEST0061: Matching semantics  test8  empty pattern matches anything | tagged_urn_test.go:1152 |
+| test0062 | `Test0062_MatchingSemantics_Test9_CrossDimensionConstraints` | TEST0062: Matching semantics  test9  cross dimension constraints | tagged_urn_test.go:1181 |
+| test0063 | `Test0063_ValuelessTagParsingSingle` | VALUE-LESS TAG TESTS Value-less tags are equivalent to wildcard tags (key=*) | tagged_urn_test.go:1213 |
+| test0064 | `Test0064_ValuelessTagParsingMultiple` | TEST0064: Valueless tag parsing multiple | tagged_urn_test.go:1226 |
+| test0065 | `Test0065_ValuelessTagMixedWithValued` | TEST0065: Valueless tag mixed with valued | tagged_urn_test.go:1248 |
+| test0066 | `Test0066_ValuelessTagAtEnd` | TEST0066: Valueless tag at end | tagged_urn_test.go:1272 |
+| test0067 | `Test0067_ValuelessTagEquivalenceToWildcard` | TEST0067: Valueless tag equivalence to wildcard | tagged_urn_test.go:1287 |
+| test0068 | `Test0068_ValuelessTagMatching` | TEST0068: Valueless tag matching | tagged_urn_test.go:1302 |
+| test0069 | `Test0069_ValuelessTagInPattern` | TEST0069: Valueless tag in pattern | tagged_urn_test.go:1328 |
+| test0070 | `Test0070_ValuelessTagSpecificity` | TEST0070: Valueless tag specificity | tagged_urn_test.go:1362 |
+| test0071 | `Test0071_ValuelessTagRoundtrip` | TEST0071: Valueless tag roundtrip | tagged_urn_test.go:1377 |
+| test0072 | `Test0072_ValuelessTagCaseNormalization` | TEST0072: Valueless tag case normalization | tagged_urn_test.go:1390 |
+| test0073 | `Test0073_EmptyValueStillError` | TEST0073: Empty value still error | tagged_urn_test.go:1411 |
+| test0074 | `Test0074_ValuelessTagCompatibility` | TEST0074: Valueless tag compatibility | tagged_urn_test.go:1423 |
+| test0075 | `Test0075_ValuelessNumericKeyStillRejected` | TEST0075: Valueless numeric key still rejected | tagged_urn_test.go:1452 |
+| test0076 | `Test0076_WhitespaceInInputRejected` | TEST0076: Whitespace in input rejected | tagged_urn_test.go:1464 |
+| test0077 | `Test0077_UnspecifiedQuestionMarkParsing` | NEW SEMANTICS TESTS: ? (unspecified) and ! (must-not-have) | tagged_urn_test.go:1509 |
+| test0078 | `Test0078_MustNotHaveExclamationParsing` | TEST0078: Must not have exclamation parsing | tagged_urn_test.go:1523 |
+| test0079 | `Test0079_QuestionMarkPatternMatchesAnything` | TEST0079: Question mark pattern matches anything | tagged_urn_test.go:1536 |
+| test0080 | `Test0080_QuestionMarkInInstance` | TEST0080: Question mark in instance | tagged_urn_test.go:1564 |
+| test0081 | `Test0081_MustNotHavePatternRequiresAbsent` | TEST0081: Must not have pattern requires absent | tagged_urn_test.go:1592 |
+| test0082 | `Test0082_MustNotHaveInInstance` | TEST0082: Must not have in instance | tagged_urn_test.go:1616 |
+| test0083 | `Test0083_FullCrossProductMatching` | TEST0083: Full cross product matching | tagged_urn_test.go:1644 |
+| test0084 | `Test0084_MixedSpecialValues` | TEST0084: Mixed special values | tagged_urn_test.go:1694 |
+| test0085 | `Test0085_SerializationRoundTripSpecialValues` | TEST0085: Serialization round trip special values | tagged_urn_test.go:1721 |
+| test0086 | `Test0086_CompatibilityWithSpecialValues` | TEST0086: Compatibility with special values | tagged_urn_test.go:1741 |
+| test0087 | `Test0087_SpecificityWithSpecialValues` | TEST0087: Specificity with special values | tagged_urn_test.go:1786 |
+| test0088 | `Test0088_BuilderRejectsEmptyValue` | TEST: Builder rejects empty value | tagged_urn_test.go:2158 |
+| test0578 | `Test0578_EquivalentIdenticalTags` | TEST0578: Equivalent URNs with identical tag sets | tagged_urn_test.go:1844 |
+| test0579 | `Test0579_NotEquivalentWhenOneMoreSpecific` | TEST0579: Non-equivalent URNs where one is more specific | tagged_urn_test.go:1856 |
+| test0580 | `Test0580_ComparableSpecializationChain` | TEST0580: Comparable URNs on the same specialization chain | tagged_urn_test.go:1868 |
+| test0581 | `Test0581_IncomparableDifferentBranches` | TEST0581: Incomparable URNs in different branches of the lattice | tagged_urn_test.go:1880 |
+| test0582 | `Test0582_EquivalentImpliesComparable` | TEST0582: Equivalent implies comparable but not vice versa | tagged_urn_test.go:1892 |
+| test0583 | `Test0583_PrefixMismatchErrors` | TEST0583: Prefix mismatch returns error for both relations | tagged_urn_test.go:1914 |
+| test0584 | `Test0584_EmptyTagsComparableToAll` | TEST0584: Empty tag set is comparable to everything with same prefix | tagged_urn_test.go:1924 |
+| test0585 | `Test0585_StringVariants` | TEST0585: String variants of IsEquivalent and IsComparable | tagged_urn_test.go:1940 |
+| test0586 | `Test0586_SpecialValues` | TEST0586: Special values (*, !, ?) with IsEquivalent and IsComparable | tagged_urn_test.go:1957 |
+| test0587 | `Test0587_BuilderFluentAPI` | TEST0587: Builder fluent API for tag manipulation | tagged_urn_test.go:2000 |
+| test0588 | `Test0588_BuilderCustomTags` | TEST0588: Builder with custom tags | tagged_urn_test.go:2022 |
+| test0589 | `Test0589_BuilderTagOverrides` | TEST0589: Builder tag overrides | tagged_urn_test.go:2039 |
+| test0590 | `Test0590_BuilderEmptyBuild` | TEST0590: Builder empty build returns error | tagged_urn_test.go:2053 |
+| test0591 | `Test0591_BuilderSingleTag` | TEST0591: Builder with single tag | tagged_urn_test.go:2059 |
+| test0592 | `Test0592_BuilderComplex` | TEST0592: Builder with complex multi-tag URN | tagged_urn_test.go:2071 |
+| test0593 | `Test0593_BuilderWildcards` | TEST0593: Builder with wildcards | tagged_urn_test.go:2097 |
+| test0594 | `Test0594_BuilderCustomPrefix` | TEST0594: Builder with custom prefix | tagged_urn_test.go:2115 |
+| test0595 | `Test0595_BuilderMatchingWithBuiltUrn` | TEST0595: Builder matching with built URN | tagged_urn_test.go:2124 |
 ---
 
 *Generated from Go source tree*
 *Total tests: 106*
-*Total numbered tests: 0*
-*Total unnumbered tests: 106*
+*Total numbered tests: 106*
+*Total unnumbered tests: 0*
 *Total numbered tests missing descriptions: 0*
-*Total numbering mismatches: 18*
+*Total numbering mismatches: 0*
