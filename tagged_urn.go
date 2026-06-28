@@ -997,7 +997,7 @@ func (c *TaggedUrn) IsEquivalent(other *TaggedUrn) (bool, error) {
 // From order theory: in a partial order, two elements are **comparable**
 // when one is ≤ the other. Elements that are NOT comparable are in
 // different branches of the specialization lattice (e.g., `media:pdf;bytes`
-// vs `media:txt;textable` — neither accepts the other).
+// vs `media:enc=utf-8;txt` — neither accepts the other).
 //
 // This is the weakest relation: it finds all URNs on the same
 // generalization/specialization chain. Use it when you want to discover

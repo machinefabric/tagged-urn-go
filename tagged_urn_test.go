@@ -1879,7 +1879,7 @@ func Test0580_ComparableSpecializationChain(t *testing.T) {
 // TEST0581: Incomparable URNs in different branches of the lattice
 func Test0581_IncomparableDifferentBranches(t *testing.T) {
 	pdf, _ := NewTaggedUrnFromString("media:pdf")
-	txt, _ := NewTaggedUrnFromString("media:txt;textable")
+	txt, _ := NewTaggedUrnFromString("media:enc=utf-8;txt")
 	comp, err := pdf.IsComparable(txt)
 	require.NoError(t, err)
 	assert.False(t, comp)
@@ -1948,7 +1948,7 @@ func Test0585_StringVariants(t *testing.T) {
 	comp, err := urn.IsComparableStr("media:")
 	require.NoError(t, err)
 	assert.True(t, comp)
-	comp, err = urn.IsComparableStr("media:txt;textable")
+	comp, err = urn.IsComparableStr("media:enc=utf-8;txt")
 	require.NoError(t, err)
 	assert.False(t, comp)
 }
