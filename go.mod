@@ -1,5 +1,5 @@
 module github.com/machinefabric/tagged-urn-go
-// version: 1.39.45
+// version: 1.40.48
 
 go 1.21
 
