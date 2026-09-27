@@ -96,6 +96,13 @@ func assemble(prefix string, tags map[string]string) *TaggedUrn {
 	return &TaggedUrn{prefix: prefix, tags: tags, formal: wf.Value}
 }
 
+// Formal is this URN on the proved model's side. A package generated from a model
+// that builds on tagged-urn's names this type for the model's URNs, so what it
+// returns passes to that package's functions as it is.
+func (c *TaggedUrn) Formal() formal.Wf {
+	return c.formal
+}
+
 // TaggedUrnRelationKind classifies the order-theoretic relation between two
 // tagged URNs. It is derived from Accepts/IsComparable/IsEquivalent and is
 // attached to coordinate deltas so callers can distinguish same-point edits,
