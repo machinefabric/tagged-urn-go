@@ -23,6 +23,10 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	lungo "github.com/machinefabric/lungo-go"
+
+	"github.com/machinefabric/tagged-urn-go/formal"
 )
 
 // TaggedUrn represents a tagged URN using flat, ordered tags with a configurable prefix.
@@ -34,6 +38,62 @@ import (
 type TaggedUrn struct {
 	prefix string
 	tags   map[string]string
+	// The same URN on the proved model's side (package formal, generated from
+	// ../formal by lungo): its tags with the proof that their keys are strictly
+	// increasing. Every semantic question — does one refine another, are they
+	// equivalent, how specific is it — is asked of this, so what this package
+	// answers is what the theorems there are about. Built once, by assemble,
+	// from the same tags as the fields beside it.
+	formal formal.Wf
+}
+
+// constraintOf is the model's form of a stored tag value (nil is a key the URN omits).
+func constraintOf(value *string) formal.Constraint {
+	if value == nil {
+		return formal.ConstraintMissing{}
+	}
+	v := *value
+	switch v {
+	case "?":
+		return formal.ConstraintUnconstrained{}
+	case "*":
+		return formal.ConstraintPresent{}
+	case "!":
+		return formal.ConstraintAbsent{}
+	}
+	if strings.HasPrefix(v, "?=") {
+		return formal.ConstraintOptionalNot{Value: v[2:]}
+	}
+	if strings.HasPrefix(v, "!=") {
+		return formal.ConstraintPresentNot{Value: v[2:]}
+	}
+	return formal.ConstraintExact{Value: v}
+}
+
+// assemble is the one way a TaggedUrn is made: the fields and the model's handle,
+// together, from the same tags. The model refuses keys that are not strictly
+// increasing, and sorted map keys always are (Go orders strings by their UTF-8
+// bytes, which is the code-point order Lean's String < uses) — so a refusal, or
+// the runtime failing, is a broken invariant, and it panics.
+func assemble(prefix string, tags map[string]string) *TaggedUrn {
+	keys := make([]string, 0, len(tags))
+	for k := range tags {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	pairs := make([]lungo.Pair[string, formal.Constraint], 0, len(keys))
+	for _, k := range keys {
+		v := tags[k]
+		pairs = append(pairs, lungo.Pair[string, formal.Constraint]{First: k, Second: constraintOf(&v)})
+	}
+	wf, err := formal.Make(prefix, pairs)
+	if err != nil {
+		panic(fmt.Sprintf("tagged-urn: the model could not build %s:%v: %v", prefix, keys, err))
+	}
+	if !wf.Valid {
+		panic(fmt.Sprintf("tagged-urn: the model refused %s:%v, whose keys are sorted", prefix, keys))
+	}
+	return &TaggedUrn{prefix: prefix, tags: tags, formal: wf.Value}
 }
 
 // TaggedUrnRelationKind classifies the order-theoretic relation between two
@@ -221,7 +281,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 
 	// Handle empty tagged URN (prefix: with no tags or just semicolon)
 	if tagsPart == "" || tagsPart == ";" {
-		return &TaggedUrn{prefix: prefix, tags: tags}, nil
+		return assemble(prefix, tags), nil
 	}
 
 	state := stateExpectingKey
@@ -537,7 +597,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 		}
 	}
 
-	return &TaggedUrn{prefix: prefix, tags: tags}, nil
+	return assemble(prefix, tags), nil
 }
 
 // NewTaggedUrnFromTags creates a tagged URN from tags with a specified prefix (required)
@@ -547,12 +607,12 @@ func NewTaggedUrnFromTags(prefix string, tags map[string]string) *TaggedUrn {
 	for k, v := range tags {
 		result[strings.ToLower(k)] = v
 	}
-	return &TaggedUrn{prefix: strings.ToLower(prefix), tags: result}
+	return assemble(strings.ToLower(prefix), result)
 }
 
 // Empty creates an empty tagged URN with the specified prefix (required)
 func Empty(prefix string) *TaggedUrn {
-	return &TaggedUrn{prefix: strings.ToLower(prefix), tags: make(map[string]string)}
+	return assemble(strings.ToLower(prefix), make(map[string]string))
 }
 
 // GetPrefix returns the prefix of this tagged URN
@@ -602,7 +662,7 @@ func (c *TaggedUrn) WithTag(key, value string) *TaggedUrn {
 		newTags[k] = v
 	}
 	newTags[strings.ToLower(key)] = value
-	return &TaggedUrn{prefix: c.prefix, tags: newTags}
+	return assemble(c.prefix, newTags)
 }
 
 // WithoutTag returns a new tagged URN with a tag removed
@@ -615,7 +675,7 @@ func (c *TaggedUrn) WithoutTag(key string) *TaggedUrn {
 			newTags[k] = v
 		}
 	}
-	return &TaggedUrn{prefix: c.prefix, tags: newTags}
+	return assemble(c.prefix, newTags)
 }
 
 // Matches checks if this URN (instance) matches a pattern based on tag compatibility
@@ -643,7 +703,7 @@ func (c *TaggedUrn) ConformsTo(pattern *TaggedUrn) (bool, error) {
 			Message: "cannot match against nil pattern",
 		}
 	}
-	return checkMatch(c.tags, c.prefix, pattern.tags, pattern.prefix)
+	return checkMatch(c, pattern)
 }
 
 // Accepts checks if this URN (pattern) accepts the given instance.
@@ -655,72 +715,30 @@ func (c *TaggedUrn) Accepts(instance *TaggedUrn) (bool, error) {
 			Message: "cannot match against nil instance",
 		}
 	}
-	return checkMatch(instance.tags, instance.prefix, c.tags, c.prefix)
+	return checkMatch(instance, c)
 }
 
 // checkMatch is the core matching: does instance satisfy pattern's constraints?
-func checkMatch(instanceTags map[string]string, instancePrefix string, patternTags map[string]string, patternPrefix string) (bool, error) {
-	if instancePrefix != patternPrefix {
-		return false, &TaggedUrnError{
-			Code:    ErrorPrefixMismatch,
-			Message: fmt.Sprintf("cannot compare URNs with different prefixes: '%s' vs '%s'", instancePrefix, patternPrefix),
-		}
+// Decided by the model (formal.Refines, proved to be refinement); only the
+// prefix check, which the model folds into the answer, is here, because a
+// comparison across prefixes is a caller's error and says so.
+func checkMatch(instance, pattern *TaggedUrn) (bool, error) {
+	if err := samePrefix(instance, pattern); err != nil {
+		return false, err
 	}
-
-	allKeys := make(map[string]bool)
-	for key := range instanceTags {
-		allKeys[key] = true
-	}
-	for key := range patternTags {
-		allKeys[key] = true
-	}
-
-	for key := range allKeys {
-		inst, instExists := instanceTags[key]
-		patt, pattExists := patternTags[key]
-
-		var instVal, pattVal *string
-		if instExists {
-			instVal = &inst
-		}
-		if pattExists {
-			pattVal = &patt
-		}
-
-		if !valuesMatch(instVal, pattVal) {
-			return false, nil
-		}
-	}
-	return true, nil
+	return formal.Refines(instance.formal, pattern.formal)
 }
 
-// valuesMatch checks if instance value matches pattern constraint
-//
-// Full cross-product truth table (instance = cap, pattern = request):
-// | Instance | Pattern | Match? | Reason |
-// |----------|---------|--------|--------|
-// | (none)   | (none)  | OK     | No constraint either side |
-// | (none)   | K=?     | OK     | Pattern doesn't care |
-// | (none)   | K=!     | OK     | Pattern wants absent, it is |
-// | (none)   | K=*     | NO     | Pattern wants present |
-// | (none)   | K=v     | OK     | Instance missing = wildcard (Rust semantics) |
-// | K=?      | (any)   | OK     | Instance doesn't care |
-// | K=!      | (none)  | OK     | Symmetric: absent |
-// | K=!      | K=?     | OK     | Pattern doesn't care |
-// | K=!      | K=!     | OK     | Both want absent |
-// | K=!      | K=*     | NO     | Conflict: absent vs present |
-// | K=!      | K=v     | NO     | Conflict: absent vs value |
-// | K=*      | (none)  | OK     | Pattern has no constraint |
-// | K=*      | K=?     | OK     | Pattern doesn't care |
-// | K=*      | K=!     | NO     | Conflict: present vs absent |
-// | K=*      | K=*     | OK     | Both accept any presence |
-// | K=*      | K=v     | OK     | Instance accepts any, v is fine |
-// | K=v      | (none)  | OK     | Pattern has no constraint |
-// | K=v      | K=?     | OK     | Pattern doesn't care |
-// | K=v      | K=!     | NO     | Conflict: value vs absent |
-// | K=v      | K=*     | OK     | Pattern wants any, v satisfies |
-// | K=v      | K=v     | OK     | Exact match |
-// | K=v      | K=w     | NO     | Value mismatch (v≠w) |
+// samePrefix refuses a comparison of URNs with different prefixes.
+func samePrefix(a, b *TaggedUrn) error {
+	if a.prefix != b.prefix {
+		return &TaggedUrnError{
+			Code:    ErrorPrefixMismatch,
+			Message: fmt.Sprintf("cannot compare URNs with different prefixes: '%s' vs '%s'", a.prefix, b.prefix),
+		}
+	}
+	return nil
+}
 
 // formKind classifies a stored tag value into one of the six
 // canonical constraint forms (plus "missing" for nil). The remaining
@@ -728,13 +746,13 @@ func checkMatch(instanceTags map[string]string, instancePrefix string, patternTa
 type formKind int
 
 const (
-	formMissing             formKind = iota // key absent from tag map
-	formNoConstraint                        // "?" — no constraint
-	formAbsentOrNotValue                    // "?=v" — absent OR (present and not v)
-	formMustHaveAny                         // "*" — present with any value
-	formPresentNotValue                     // "!=v" — present and not v
-	formExact                               // exact value
-	formMustNotHave                         // "!" — must not have
+	formMissing          formKind = iota // key absent from tag map
+	formNoConstraint                     // "?" — no constraint
+	formAbsentOrNotValue                 // "?=v" — absent OR (present and not v)
+	formMustHaveAny                      // "*" — present with any value
+	formPresentNotValue                  // "!=v" — present and not v
+	formExact                            // exact value
+	formMustNotHave                      // "!" — must not have
 )
 
 // classifyForm parses the stored value into (kind, raw value).
@@ -762,68 +780,19 @@ func classifyForm(value *string) (formKind, string) {
 	return formExact, v
 }
 
-// ValuesMatch evaluates the truth-table cell for (instance, pattern)
-// over the six canonical forms. Both arguments are stored tag-value
-// pointers (or nil to mean "key absent"). Exposed for callers (e.g.
-// CapUrn's y-axis matcher) that walk tag sets themselves and need
-// the same per-cell decision the tagged-URN matcher uses internally.
+// ValuesMatch decides one key: does the instance's stored value (nil for a key
+// the URN omits) satisfy the pattern's? Exposed for callers (e.g. CapUrn's
+// y-axis matcher) that walk tag sets themselves and need the same per-key
+// decision the tagged-URN matcher makes. Decided by the model
+// (formal.ValuesMatch): every form has one meaning — the set of states the key
+// may be in — and the instance satisfies the pattern when every state it
+// allows, the pattern allows too (tagMatch_iff_allows in ../formal).
 func ValuesMatch(inst, patt *string) bool {
-	return valuesMatch(inst, patt)
-}
-
-// valuesMatch is the package-private worker. Prefer the exported
-// wrapper above for callers outside this package.
-//
-// Every form has ONE meaning — the set of states the key may be in
-// (absent, or present with some value) — and the same meaning on
-// either side: the instance satisfies the pattern when every state it
-// allows, the pattern allows too. This is the rule proved in
-// tagged-urn's formal/ (tagMatch_iff_allows), which is what makes
-// refinement transitive and equivalence mean "the same tag set". The
-// table it replaces gave some forms two meanings (a missing key was
-// "anything" as a pattern and "absent" as an instance; an
-// instance-side x or ?x was "whatever the pattern wants"); the change
-// only removes matches.
-func valuesMatch(inst, patt *string) bool {
-	iKind, iVal := classifyForm(inst)
-	pKind, pVal := classifyForm(patt)
-
-	// A pattern that constrains nothing accepts every instance.
-	if pKind == formMissing || pKind == formNoConstraint {
-		return true
+	ok, err := formal.ValuesMatch(constraintOf(inst), constraintOf(patt))
+	if err != nil {
+		panic(fmt.Sprintf("tagged-urn: the model could not match one key: %v", err))
 	}
-
-	switch iKind {
-	case formMissing, formNoConstraint:
-		// An instance that constrains nothing promises nothing.
-		return false
-	case formMustNotHave:
-		return pKind == formMustNotHave || pKind == formAbsentOrNotValue
-	case formAbsentOrNotValue:
-		return pKind == formAbsentOrNotValue && iVal == pVal
-	case formMustHaveAny:
-		// Present with SOME value: not a promise of any particular one.
-		return pKind == formMustHaveAny
-	case formPresentNotValue:
-		switch pKind {
-		case formMustHaveAny:
-			return true
-		case formPresentNotValue, formAbsentOrNotValue:
-			return iVal == pVal
-		}
-		return false
-	case formExact:
-		switch pKind {
-		case formMustHaveAny:
-			return true
-		case formExact:
-			return iVal == pVal
-		case formPresentNotValue, formAbsentOrNotValue:
-			return iVal != pVal
-		}
-		return false
-	}
-	return false
+	return ok
 }
 
 // ConformsToStr checks if this URN (instance) satisfies a string pattern's constraints.
@@ -873,15 +842,19 @@ func ScoreTagValue(value string) int {
 	return 4
 }
 
-// Specificity returns the specificity score for URN matching.
-// More specific URNs have higher scores and are preferred. Sum of
-// the per-tag truth-table score across every tag in the URN.
+// Specificity returns the specificity score for URN matching: the sum of the
+// per-tag truth-table scores across every tag in the URN, as the model computes
+// it (formal.Specificity). More specific URNs have higher scores and are
+// preferred.
 func (c *TaggedUrn) Specificity() int {
-	score := 0
-	for _, value := range c.tags {
-		score += ScoreTagValue(value)
+	score, err := formal.Specificity(c.formal)
+	if err != nil {
+		panic(fmt.Sprintf("tagged-urn: the model could not score %s: %v", c.ToString(), err))
 	}
-	return score
+	if !score.IsInt64() {
+		panic(fmt.Sprintf("tagged-urn: the specificity of %s does not fit an int: %s", c.ToString(), score))
+	}
+	return int(score.Int64())
 }
 
 // SpecificityTuple returns specificity as a tuple for tie-breaking.
@@ -949,9 +922,8 @@ func (c *TaggedUrn) IsMoreSpecificThan(other *TaggedUrn) (bool, error) {
 //
 //	a.IsEquivalent(b)  ≡  a.Accepts(b) && b.Accepts(a)
 //
-// Returns PrefixMismatch error if prefixes differ (inherited from
-// Accepts/ConformsTo — both sides return false on mismatch, but
-// since we AND them, the error propagates).
+// Decided by the model (formal.Equivalent, proved equal to it). Returns a
+// PrefixMismatch error if the prefixes differ.
 func (c *TaggedUrn) IsEquivalent(other *TaggedUrn) (bool, error) {
 	if other == nil {
 		return false, &TaggedUrnError{
@@ -959,18 +931,10 @@ func (c *TaggedUrn) IsEquivalent(other *TaggedUrn) (bool, error) {
 			Message: "cannot compare against nil URN",
 		}
 	}
-
-	aAcceptsB, err := c.Accepts(other)
-	if err != nil {
+	if err := samePrefix(c, other); err != nil {
 		return false, err
 	}
-
-	bAcceptsA, err := other.Accepts(c)
-	if err != nil {
-		return false, err
-	}
-
-	return aAcceptsB && bAcceptsA, nil
+	return formal.Equivalent(c.formal, other.formal)
 }
 
 // IsComparable checks if two URNs are comparable (one is a specialization of the other).
@@ -987,8 +951,8 @@ func (c *TaggedUrn) IsEquivalent(other *TaggedUrn) (bool, error) {
 //
 //	a.IsComparable(b)  ≡  a.Accepts(b) || b.Accepts(a)
 //
-// Returns PrefixMismatch error if prefixes differ (inherited from
-// Accepts/ConformsTo).
+// Decided by the model (formal.Comparable, proved equal to it). Returns a
+// PrefixMismatch error if the prefixes differ.
 func (c *TaggedUrn) IsComparable(other *TaggedUrn) (bool, error) {
 	if other == nil {
 		return false, &TaggedUrnError{
@@ -996,18 +960,10 @@ func (c *TaggedUrn) IsComparable(other *TaggedUrn) (bool, error) {
 			Message: "cannot compare against nil URN",
 		}
 	}
-
-	aAcceptsB, err := c.Accepts(other)
-	if err != nil {
+	if err := samePrefix(c, other); err != nil {
 		return false, err
 	}
-
-	bAcceptsA, err := other.Accepts(c)
-	if err != nil {
-		return false, err
-	}
-
-	return aAcceptsB || bAcceptsA, nil
+	return formal.Comparable(c.formal, other.formal)
 }
 
 // Compare returns -1, 0, or 1 using structural tagged-URN ordering:
@@ -1164,7 +1120,7 @@ func (c *TaggedUrn) ApplyDelta(delta *TaggedUrnCoordinateDelta) (*TaggedUrn, err
 	for key, value := range delta.Added {
 		nextTags[key] = value
 	}
-	return &TaggedUrn{prefix: c.prefix, tags: nextTags}, nil
+	return assemble(c.prefix, nextTags), nil
 }
 
 // IsEquivalentStr is a string variant of IsEquivalent.
@@ -1201,7 +1157,7 @@ func (c *TaggedUrn) Subset(keys []string) *TaggedUrn {
 			newTags[key] = value
 		}
 	}
-	return &TaggedUrn{prefix: c.prefix, tags: newTags}
+	return assemble(c.prefix, newTags)
 }
 
 // Merge returns a new URN merged with another (other takes precedence for conflicts)
@@ -1228,7 +1184,7 @@ func (c *TaggedUrn) Merge(other *TaggedUrn) (*TaggedUrn, error) {
 	for k, v := range other.tags {
 		newTags[k] = v
 	}
-	return &TaggedUrn{prefix: c.prefix, tags: newTags}, nil
+	return assemble(c.prefix, newTags), nil
 }
 
 // ToString returns the canonical string representation of this tagged URN
@@ -1353,8 +1309,7 @@ func (c *TaggedUrn) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	c.prefix = taggedUrn.prefix
-	c.tags = taggedUrn.tags
+	*c = *taggedUrn
 	return nil
 }
 
@@ -1486,10 +1441,10 @@ func (b *TaggedUrnBuilder) Build() (*TaggedUrn, error) {
 		}
 	}
 
-	return &TaggedUrn{prefix: b.prefix, tags: b.tags}, nil
+	return assemble(b.prefix, b.tags), nil
 }
 
 // BuildAllowEmpty creates the final TaggedUrn, allowing empty tags
 func (b *TaggedUrnBuilder) BuildAllowEmpty() *TaggedUrn {
-	return &TaggedUrn{prefix: b.prefix, tags: b.tags}
+	return assemble(b.prefix, b.tags)
 }
