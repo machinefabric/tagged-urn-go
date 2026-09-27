@@ -1090,10 +1090,8 @@ func Test0057_MatchingSemantics_Test4_RequestHasWildcard(t *testing.T) {
 
 // TEST0058: Matching semantics  test5  urn has wildcard
 func Test0058_MatchingSemantics_Test5_UrnHasWildcard(t *testing.T) {
-	// Test 5: URN has wildcard
-	// URN:     cap:generate;ext=*
-	// Request: cap:generate;ext=pdf
-	// Result:  MATCH (URN handles any ext)
+	// An instance's wildcard promises presence, not the value asked for:
+	// "some ext" does not satisfy ext=pdf, and a pdf satisfies "some ext".
 	urn, err := NewTaggedUrnFromString("cap:generate;ext=*")
 	require.NoError(t, err)
 
@@ -1102,7 +1100,10 @@ func Test0058_MatchingSemantics_Test5_UrnHasWildcard(t *testing.T) {
 
 	matches, err := urn.ConformsTo(request)
 	require.NoError(t, err)
-	assert.True(t, matches, "Test 5: URN wildcard should match")
+	assert.False(t, matches, "some ext does not satisfy ext=pdf")
+	matches, err = request.ConformsTo(urn)
+	require.NoError(t, err)
+	assert.True(t, matches, "ext=pdf satisfies some ext")
 }
 
 // TEST0059: Matching semantics  test6  value mismatch
@@ -1300,7 +1301,10 @@ func Test0067_ValuelessTagEquivalenceToWildcard(t *testing.T) {
 
 // TEST0068: Valueless tag matching
 func Test0068_ValuelessTagMatching(t *testing.T) {
-	// Value-less tag (wildcard) matches any value
+	// A valueless tag promises presence, not a value. Reading `ext` as
+	// "whatever the pattern wants" made `ext` and `ext=pdf` equivalent and
+	// refinement non-transitive; refinement is inclusion of what each form
+	// allows (tagged-urn formal, `tagMatch_iff_allows`).
 	urn, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
 
@@ -1308,20 +1312,22 @@ func Test0068_ValuelessTagMatching(t *testing.T) {
 	require.NoError(t, err)
 	requestDocx, err := NewTaggedUrnFromString("cap:generate;ext=docx")
 	require.NoError(t, err)
-	requestAny, err := NewTaggedUrnFromString("cap:generate;ext=anything")
-	require.NoError(t, err)
 
 	matches, err := urn.ConformsTo(requestPdf)
 	require.NoError(t, err)
-	assert.True(t, matches)
+	assert.False(t, matches, "some ext is not a promise of pdf")
 
 	matches, err = urn.ConformsTo(requestDocx)
 	require.NoError(t, err)
-	assert.True(t, matches)
+	assert.False(t, matches, "some ext is not a promise of docx")
 
-	matches, err = urn.ConformsTo(requestAny)
+	matches, err = requestPdf.ConformsTo(urn)
 	require.NoError(t, err)
-	assert.True(t, matches)
+	assert.True(t, matches, "a pdf is some ext")
+
+	equiv, err := urn.IsEquivalent(requestPdf)
+	require.NoError(t, err)
+	assert.False(t, equiv, "ext and ext=pdf are different tag sets")
 }
 
 // TEST0069: Valueless tag in pattern
@@ -1562,7 +1568,9 @@ func Test0079_QuestionMarkPatternMatchesAnything(t *testing.T) {
 
 // TEST0080: Question mark in instance
 func Test0080_QuestionMarkInInstance(t *testing.T) {
-	// Instance with K=? matches any pattern constraint
+	// An instance with K=? promises nothing about K, so it satisfies exactly
+	// the patterns that ask for nothing. Satisfying every pattern made
+	// refinement non-transitive: missing ⪯ ?k ⪯ k=v, yet missing ⋠ k=v.
 	instance, err := NewTaggedUrnFromString("cap:ext=?")
 	require.NoError(t, err)
 
@@ -1573,13 +1581,13 @@ func Test0080_QuestionMarkInInstance(t *testing.T) {
 	patternMissing, _ := NewTaggedUrnFromString("cap:")
 
 	matches, _ := instance.ConformsTo(patternPdf)
-	assert.True(t, matches, "ext=? should match ext=pdf")
+	assert.False(t, matches, "ext=? promises no pdf")
 
 	matches, _ = instance.ConformsTo(patternWildcard)
-	assert.True(t, matches, "ext=? should match ext=*")
+	assert.False(t, matches, "ext=? promises no presence")
 
 	matches, _ = instance.ConformsTo(patternMustNot)
-	assert.True(t, matches, "ext=? should match ext=!")
+	assert.False(t, matches, "ext=? promises no absence")
 
 	matches, _ = instance.ConformsTo(patternQuestion)
 	assert.True(t, matches, "ext=? should match ext=?")
@@ -1590,7 +1598,8 @@ func Test0080_QuestionMarkInInstance(t *testing.T) {
 
 // TEST0081: Must not have pattern requires absent
 func Test0081_MustNotHavePatternRequiresAbsent(t *testing.T) {
-	// Pattern with K=! requires instance to NOT have K
+	// Pattern with K=! requires the instance to SAY K is absent: a key an
+	// instance does not mention is not a promise that it is absent.
 	pattern, err := NewTaggedUrnFromString("cap:ext=!")
 	require.NoError(t, err)
 
@@ -1600,7 +1609,7 @@ func Test0081_MustNotHavePatternRequiresAbsent(t *testing.T) {
 	instanceMustNot, _ := NewTaggedUrnFromString("cap:ext=!")
 
 	matches, _ := instanceMissing.ConformsTo(pattern)
-	assert.True(t, matches, "(no ext) should match ext=!")
+	assert.False(t, matches, "(no ext) does not promise ext is absent")
 
 	matches, _ = instancePdf.ConformsTo(pattern)
 	assert.False(t, matches, "ext=pdf should NOT match ext=!")
@@ -1656,16 +1665,16 @@ func Test0083_FullCrossProductMatching(t *testing.T) {
 	// Instance missing, Pattern variations
 	check("cap:", "cap:", true, "(none)/(none)")
 	check("cap:", "cap:k=?", true, "(none)/K=?")
-	check("cap:", "cap:k=!", true, "(none)/K=!")
+	check("cap:", "cap:k=!", false, "(none)/K=!")
 	check("cap:", "cap:k", false, "(none)/K=*")
 	check("cap:", "cap:k=v", false, "(none)/K=v")
 
 	// Instance K=?, Pattern variations
 	check("cap:k=?", "cap:", true, "K=?/(none)")
 	check("cap:k=?", "cap:k=?", true, "K=?/K=?")
-	check("cap:k=?", "cap:k=!", true, "K=?/K=!")
-	check("cap:k=?", "cap:k", true, "K=?/K=*")
-	check("cap:k=?", "cap:k=v", true, "K=?/K=v")
+	check("cap:k=?", "cap:k=!", false, "K=?/K=!")
+	check("cap:k=?", "cap:k", false, "K=?/K=*")
+	check("cap:k=?", "cap:k=v", false, "K=?/K=v")
 
 	// Instance K=!, Pattern variations
 	check("cap:k=!", "cap:", true, "K=!/(none)")
@@ -1679,7 +1688,7 @@ func Test0083_FullCrossProductMatching(t *testing.T) {
 	check("cap:k", "cap:k=?", true, "K=*/K=?")
 	check("cap:k", "cap:k=!", false, "K=*/K=!")
 	check("cap:k", "cap:k", true, "K=*/K=*")
-	check("cap:k", "cap:k=v", true, "K=*/K=v")
+	check("cap:k", "cap:k=v", false, "K=*/K=v")
 
 	// Instance K=v, Pattern variations
 	check("cap:k=v", "cap:", true, "K=v/(none)")
@@ -1696,10 +1705,14 @@ func Test0084_MixedSpecialValues(t *testing.T) {
 	pattern, err := NewTaggedUrnFromString("cap:required;optional=?;forbidden=!;exact=pdf")
 	require.NoError(t, err)
 
-	// Instance that satisfies all constraints
-	goodInstance, _ := NewTaggedUrnFromString("cap:required=yes;optional=maybe;exact=pdf")
+	// Instance that satisfies all constraints — including stating that the
+	// forbidden key is absent, which leaving it out does not promise.
+	goodInstance, _ := NewTaggedUrnFromString("cap:required=yes;optional=maybe;forbidden=!;exact=pdf")
 	matches, _ := goodInstance.ConformsTo(pattern)
 	assert.True(t, matches)
+	silentOnForbidden, _ := NewTaggedUrnFromString("cap:required=yes;optional=maybe;exact=pdf")
+	matches, _ = silentOnForbidden.ConformsTo(pattern)
+	assert.False(t, matches)
 
 	// Instance missing required tag
 	missingRequired, _ := NewTaggedUrnFromString("cap:optional=maybe;exact=pdf")
@@ -1960,9 +1973,12 @@ func Test0586_SpecialValues(t *testing.T) {
 	mustNot, _ := NewTaggedUrnFromString("cap:ext=!")
 	unspecified, _ := NewTaggedUrnFromString("cap:ext=?")
 
+	// must_have (*) and exact (pdf): comparable — a pdf is some ext — and
+	// NOT equivalent: equivalence is "the same tag set" (tagged-urn formal,
+	// `equivalent_iff_same_forms`).
 	equiv, err := mustHave.IsEquivalent(exact)
 	require.NoError(t, err)
-	assert.True(t, equiv)
+	assert.False(t, equiv)
 	comp, err := mustHave.IsComparable(exact)
 	require.NoError(t, err)
 	assert.True(t, comp)
@@ -1981,13 +1997,22 @@ func Test0586_SpecialValues(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, equiv)
 
+	// unspecified (?) accepts everything, and is equivalent only to what
+	// also constrains nothing.
 	equiv, err = unspecified.IsEquivalent(exact)
 	require.NoError(t, err)
-	assert.True(t, equiv)
+	assert.False(t, equiv)
 	equiv, err = unspecified.IsEquivalent(mustHave)
 	require.NoError(t, err)
-	assert.True(t, equiv)
+	assert.False(t, equiv)
 	equiv, err = unspecified.IsEquivalent(mustNot)
+	require.NoError(t, err)
+	assert.False(t, equiv)
+	comp, err = unspecified.IsComparable(exact)
+	require.NoError(t, err)
+	assert.True(t, comp)
+	empty, _ := NewTaggedUrnFromString("cap:")
+	equiv, err = unspecified.IsEquivalent(empty)
 	require.NoError(t, err)
 	assert.True(t, equiv)
 }

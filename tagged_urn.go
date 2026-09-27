@@ -773,75 +773,56 @@ func ValuesMatch(inst, patt *string) bool {
 
 // valuesMatch is the package-private worker. Prefer the exported
 // wrapper above for callers outside this package.
+//
+// Every form has ONE meaning — the set of states the key may be in
+// (absent, or present with some value) — and the same meaning on
+// either side: the instance satisfies the pattern when every state it
+// allows, the pattern allows too. This is the rule proved in
+// tagged-urn's formal/ (tagMatch_iff_allows), which is what makes
+// refinement transitive and equivalence mean "the same tag set". The
+// table it replaces gave some forms two meanings (a missing key was
+// "anything" as a pattern and "absent" as an instance; an
+// instance-side x or ?x was "whatever the pattern wants"); the change
+// only removes matches.
 func valuesMatch(inst, patt *string) bool {
 	iKind, iVal := classifyForm(inst)
 	pKind, pVal := classifyForm(patt)
 
-	// Pattern unconditionally permissive.
+	// A pattern that constrains nothing accepts every instance.
 	if pKind == formMissing || pKind == formNoConstraint {
 		return true
 	}
 
-	// Instance unconditionally permissive — defers to pattern.
-	if iKind == formNoConstraint {
-		return true
-	}
-
-	switch pKind {
+	switch iKind {
+	case formMissing, formNoConstraint:
+		// An instance that constrains nothing promises nothing.
+		return false
 	case formMustNotHave:
-		// Pattern requires absent. Only absent-side instances pass.
-		switch iKind {
-		case formMissing, formMustNotHave, formAbsentOrNotValue:
-			return true
-		default:
-			return false
-		}
-
-	case formMustHaveAny:
-		// Pattern requires present (any value).
-		switch iKind {
-		case formMissing, formAbsentOrNotValue, formMustNotHave:
-			return false
-		default:
-			return true
-		}
-
-	case formPresentNotValue:
-		// Pattern requires present-and-not-pVal.
-		switch iKind {
-		case formMissing, formAbsentOrNotValue, formMustNotHave:
-			return false
-		case formMustHaveAny, formPresentNotValue:
-			return true // defer on actual value identity
-		case formExact:
-			return iVal != pVal
-		}
-
+		return pKind == formMustNotHave || pKind == formAbsentOrNotValue
 	case formAbsentOrNotValue:
-		// Pattern allows absent OR (present and not pVal).
-		switch iKind {
-		case formMissing, formAbsentOrNotValue, formMustNotHave:
-			return true
-		case formMustHaveAny, formPresentNotValue:
-			return true // defer
-		case formExact:
-			return iVal != pVal
-		}
-
-	case formExact:
-		// Pattern requires exact pVal.
-		switch iKind {
-		case formMissing, formAbsentOrNotValue, formMustNotHave:
-			return false
+		return pKind == formAbsentOrNotValue && iVal == pVal
+	case formMustHaveAny:
+		// Present with SOME value: not a promise of any particular one.
+		return pKind == formMustHaveAny
+	case formPresentNotValue:
+		switch pKind {
 		case formMustHaveAny:
-			return true // defer
-		case formPresentNotValue:
-			return iVal != pVal
-		case formExact:
+			return true
+		case formPresentNotValue, formAbsentOrNotValue:
 			return iVal == pVal
 		}
+		return false
+	case formExact:
+		switch pKind {
+		case formMustHaveAny:
+			return true
+		case formExact:
+			return iVal == pVal
+		case formPresentNotValue, formAbsentOrNotValue:
+			return iVal != pVal
+		}
+		return false
 	}
-
 	return false
 }
 
