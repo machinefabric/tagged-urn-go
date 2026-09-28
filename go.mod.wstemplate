@@ -5,7 +5,7 @@ go 1.22
 
 // The relations are decided by code generated from ../formal (package formal), which runs
 // on lungo's runtime through lungo-go, at exactly the lungo release that generated it.
-require github.com/machinefabric/lungo-go v{% if env.MFR_LOCAL_LIBS %}0.0.0{% else %}{{ projects.lungo.version }}{% endif %}
+require github.com/machinefabric/lungo-go v{% if env.MFR_LOCAL_LIBS %}0.0.0{% else %}{{ projects.lungo_go.latest_remote_version }}{% endif %}
 
 require github.com/stretchr/testify v1.8.4
 
