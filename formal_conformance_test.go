@@ -14,7 +14,9 @@ import (
 // The rules are proved in ../formal (Lean); this is what ties them to this
 // mirror: every row of ../formal/conformance.json (written by the model,
 // `lake exe conformance`) is parsed by this parser and must get the model's
-// verdict. The same table runs in every mirror.
+// verdict — for the guarantee (ConformsTo), the possibility (Meets), and the
+// complete reading of the instance (Satisfies, MaySatisfy). The same table runs
+// in every mirror.
 func Test0599_EveryRowOfTheModelsTable(t *testing.T) {
 	raw, err := os.ReadFile("../formal/conformance.json")
 	require.NoError(t, err, "the model's table")
@@ -24,6 +26,9 @@ func Test0599_EveryRowOfTheModelsTable(t *testing.T) {
 			Pattern    string `json:"pattern"`
 			Refines    bool   `json:"refines"`
 			Equivalent bool   `json:"equivalent"`
+			Meets      bool   `json:"meets"`
+			Satisfies  bool   `json:"satisfies"`
+			MaySatisfy bool   `json:"may_satisfy"`
 		} `json:"refines"`
 		Scores []struct {
 			Urn   string `json:"urn"`
@@ -47,6 +52,21 @@ func Test0599_EveryRowOfTheModelsTable(t *testing.T) {
 		require.NoError(t, err)
 		if got != row.Equivalent {
 			wrong = append(wrong, fmt.Sprintf("%s ≡ %s: model %v", row.Instance, row.Pattern, row.Equivalent))
+		}
+		for _, check := range []struct {
+			name  string
+			ask   func(*TaggedUrn) (bool, error)
+			model bool
+		}{
+			{"meets", a.Meets, row.Meets},
+			{"satisfies", a.Satisfies, row.Satisfies},
+			{"may satisfy", a.MaySatisfy, row.MaySatisfy},
+		} {
+			got, err := check.ask(b)
+			require.NoError(t, err)
+			if got != check.model {
+				wrong = append(wrong, fmt.Sprintf("%s %s %s: model %v", row.Instance, check.name, row.Pattern, check.model))
+			}
 		}
 	}
 	for _, row := range table.Scores {

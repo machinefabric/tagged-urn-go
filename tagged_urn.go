@@ -685,24 +685,18 @@ func (c *TaggedUrn) WithoutTag(key string) *TaggedUrn {
 	return assemble(c.prefix, newTags)
 }
 
-// Matches checks if this URN (instance) matches a pattern based on tag compatibility
+// ConformsTo checks whether this URN (the instance) satisfies the pattern:
+// everything this URN describes, the pattern describes.
 //
-// IMPORTANT: Both URNs must have the same prefix. Comparing URNs with
-// different prefixes is a programming error and will return an error.
+// Decided by the proved model (formal.Refines): every tag form means the set of
+// states it allows — on either side — and the instance satisfies the pattern
+// when, key by key, its set lies inside the pattern's. A key the instance omits
+// promises nothing, `?x` promises nothing, and `x` promises presence but no
+// particular value. Both URNs must have the same prefix.
 //
-// Per-tag matching semantics:
-// | Pattern Form | Interpretation              | Instance Missing | Instance = v | Instance = x≠v |
-// |--------------|-----------------------------|--------------------|--------------|----------------|
-// | (no entry)   | no constraint               | OK match           | OK match     | OK match       |
-// | K=?          | no constraint (explicit)    | OK                 | OK           | OK             |
-// | K=!          | must-not-have               | OK                 | NO           | NO             |
-// | K=*          | must-have, any value        | NO                 | OK           | OK             |
-// | K=v          | must-have, exact value      | NO                 | OK           | NO             |
-//
-// Special values work symmetrically on both instance and pattern sides.
-//
-// ConformsTo checks if this URN (instance) satisfies the pattern's constraints.
-// Equivalent to pattern.Accepts(self).
+// This is a guarantee between two descriptions. Whether they COULD be about the
+// same thing is Meets; whether a complete thing satisfies a description is
+// Satisfies. Equivalent to pattern.Accepts(self).
 func (c *TaggedUrn) ConformsTo(pattern *TaggedUrn) (bool, error) {
 	if pattern == nil {
 		return false, &TaggedUrnError{
@@ -734,6 +728,55 @@ func checkMatch(instance, pattern *TaggedUrn) (bool, error) {
 		return false, err
 	}
 	return formal.Refines(instance.formal, pattern.formal)
+}
+
+// Meets reports whether this URN and other COULD be about the same thing: some
+// thing is described by both. Symmetric — neither is the instance.
+//
+// `media:ext` (some ext) does not conform to `media:ext=pdf`, and is not
+// excluded by it either: it meets it, and only the value that turns up says
+// which. Whatever conforms meets; what meets need not conform, and meeting is
+// not transitive (a pdf meets "some ext", which meets a png). Decided by the
+// proved model (formal.Meets).
+func (c *TaggedUrn) Meets(other *TaggedUrn) (bool, error) {
+	if other == nil {
+		return false, &TaggedUrnError{Code: ErrorInvalidFormat, Message: "cannot compare with a nil URN"}
+	}
+	if err := samePrefix(c, other); err != nil {
+		return false, err
+	}
+	return formal.Meets(c.formal, other.formal)
+}
+
+// Satisfies reports whether this URN, read as a COMPLETE thing, satisfies the
+// pattern.
+//
+// A description that omits a key says nothing about it, which is how ConformsTo
+// reads both sides. A thing that exists — a value with these tags, a cap's own
+// list of tags — omits a key because it does not have it. Read so, a thing that
+// does not mention `x` satisfies `!x`. Use this where the receiver is what
+// something IS; use ConformsTo where it is what something is declared to take
+// or give. Decided by the proved model (formal.RefinesClosed).
+func (c *TaggedUrn) Satisfies(pattern *TaggedUrn) (bool, error) {
+	if pattern == nil {
+		return false, &TaggedUrnError{Code: ErrorInvalidFormat, Message: "cannot match against nil pattern"}
+	}
+	if err := samePrefix(c, pattern); err != nil {
+		return false, err
+	}
+	return formal.RefinesClosed(c.formal, pattern.formal)
+}
+
+// MaySatisfy reports whether this URN, read as a complete thing, COULD satisfy
+// the pattern: Satisfies is to this as ConformsTo is to Meets.
+func (c *TaggedUrn) MaySatisfy(pattern *TaggedUrn) (bool, error) {
+	if pattern == nil {
+		return false, &TaggedUrnError{Code: ErrorInvalidFormat, Message: "cannot match against nil pattern"}
+	}
+	if err := samePrefix(c, pattern); err != nil {
+		return false, err
+	}
+	return formal.MeetsClosed(c.formal, pattern.formal)
 }
 
 // samePrefix refuses a comparison of URNs with different prefixes.
@@ -796,6 +839,26 @@ func classifyForm(value *string) (formKind, string) {
 // allows, the pattern allows too (tagMatch_iff_allows in ../formal).
 func ValuesMatch(inst, patt *string) bool {
 	ok, err := formal.ValuesMatch(constraintOf(inst), constraintOf(patt))
+	if err != nil {
+		panic(fmt.Sprintf("tagged-urn: the model could not match one key: %v", err))
+	}
+	return ok
+}
+
+// ValuesMeet decides one key: do the two stored values allow a common state?
+// (formal.ValuesMeet.)
+func ValuesMeet(a, b *string) bool {
+	ok, err := formal.ValuesMeet(constraintOf(a), constraintOf(b))
+	if err != nil {
+		panic(fmt.Sprintf("tagged-urn: the model could not compare one key: %v", err))
+	}
+	return ok
+}
+
+// ValuesMatchClosed decides one key of a complete thing against a pattern: an
+// omitted key is absent. (formal.ValuesMatchClosed.)
+func ValuesMatchClosed(inst, patt *string) bool {
+	ok, err := formal.ValuesMatchClosed(constraintOf(inst), constraintOf(patt))
 	if err != nil {
 		panic(fmt.Sprintf("tagged-urn: the model could not match one key: %v", err))
 	}

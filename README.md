@@ -94,12 +94,32 @@ func main() {
 
 ## Matching Semantics
 
-| Pattern | Instance Missing | Instance=v | Instance=x (x≠v) |
-|---------|------------------|------------|------------------|
-| (missing) or `?` | Match | Match | Match |
-| `K=!` | Match | No Match | No Match |
-| `K=*` | No Match | Match | Match |
-| `K=v` | No Match | Match | No Match |
+Every form means the set of states its key may be in, on either side of a
+comparison, and two URNs are compared by those sets. Three questions:
+
+| Question | Go |
+|---|---|
+| Is everything `a` describes described by `b`? (a guarantee) | `a.ConformsTo(b)` |
+| Could `a` and `b` be about the same thing? (a possibility) | `a.Meets(b)` |
+| Does `a`, a complete thing — what it does not mention it does not have — fit `b`? | `a.Satisfies(b)` |
+
+What an instance must say to be guaranteed to fit a pattern:
+
+| Pattern | Instance omits K | Instance `K=v` | Instance `K=x` (x≠v) | Instance `K` (any value) |
+|---------|------------------|----------------|----------------------|--------------------------|
+| (missing) or `?K` | fits | fits | fits | fits |
+| `!K` | no — an omission promises nothing | no | no | no |
+| `K` (=`K=*`) | no | fits | fits | fits |
+| `K=v` | no | fits | no | no — "some value" is not `v` |
+
+A complete thing that omits `K` does fit `!K`: use `Satisfies` where the
+left side is what something is — a value's media, a cap's own tags — rather than
+what something is declared to take or give. "Some value" could be `v`:
+`Meets` says so, and is the answer a search wants; a route is only ever
+taken on a guarantee.
+
+The rules are proved in `../formal` (Lean), and this package runs code generated
+from them.
 
 ## Graded Specificity
 
