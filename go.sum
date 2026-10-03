@@ -2,6 +2,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/machinefabric/lungo-go v1.78.3254 h1:xWNXyACQfTjshQgd5R7/FLzNEnmLGMF3tzAP9Ejc6LQ=
 github.com/machinefabric/lungo-go v1.78.3254/go.mod h1:yXXsGau7ww37IBgFrkuli1854jLhff2BFaSlkqACoto=
+github.com/machinefabric/lungo-go v1.82.64 h1:0hd+4X/YzAXySBFuN2251Dp1j+SiY86qeV8ng0OIigc=
+github.com/machinefabric/lungo-go v1.82.64/go.mod h1:yXXsGau7ww37IBgFrkuli1854jLhff2BFaSlkqACoto=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
