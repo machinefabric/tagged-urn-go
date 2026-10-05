@@ -1,11 +1,11 @@
 module github.com/machinefabric/tagged-urn-go
-// version: 1.68.145
+// version: 1.69.180
 
 go 1.22
 
 // The relations are decided by code generated from ../formal (package formal), which runs
 // on lungo's runtime through lungo-go, at exactly the lungo release that generated it.
-require github.com/machinefabric/lungo-go v1.82.64
+require github.com/machinefabric/lungo-go v1.86.160
 
 require github.com/stretchr/testify v1.8.4
 
