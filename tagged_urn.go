@@ -733,7 +733,7 @@ func checkMatch(instance, pattern *TaggedUrn) (bool, error) {
 // Meets reports whether this URN and other COULD be about the same thing: some
 // thing is described by both. Symmetric — neither is the instance.
 //
-// `media:ext` (some ext) does not conform to `media:ext=pdf`, and is not
+// `media:ext` (some ext) does not conform to `media:document;ext=pdf`, and is not
 // excluded by it either: it meets it, and only the value that turns up says
 // which. Whatever conforms meets; what meets need not conform, and meeting is
 // not transitive (a pdf meets "some ext", which meets a png). Decided by the
