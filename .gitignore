@@ -52,5 +52,4 @@ temp/
 # *.pb.go
 # bindata.go
 
-.wsb/
 diffs/
