@@ -15,7 +15,8 @@ import (
 // mirror: every row of ../formal/conformance.json (written by the model,
 // `lake exe conformance`) is parsed by this parser and must get the model's
 // verdict — for the guarantee (ConformsTo), the possibility (Meets), and the
-// complete reading of the instance (Satisfies, MaySatisfy). The same table runs
+// complete reading of the instance (Satisfies, MaySatisfy) — and every set of
+// URNs in it must get the model's bound (LeastUpperBound). The same table runs
 // in every mirror.
 func Test0599_EveryRowOfTheModelsTable(t *testing.T) {
 	raw, err := os.ReadFile("../formal/conformance.json")
@@ -34,6 +35,10 @@ func Test0599_EveryRowOfTheModelsTable(t *testing.T) {
 			Urn   string `json:"urn"`
 			Score int    `json:"score"`
 		} `json:"scores"`
+		Bounds []struct {
+			Urns  []string `json:"urns"`
+			Bound string   `json:"bound"`
+		} `json:"bounds"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &table))
 
@@ -76,7 +81,22 @@ func Test0599_EveryRowOfTheModelsTable(t *testing.T) {
 			wrong = append(wrong, fmt.Sprintf("specificity %s: model %d, got %d", row.Urn, row.Score, u.Specificity()))
 		}
 	}
-	require.True(t, len(table.Refines) > 4000 && len(table.Scores) > 60, "the table is the full one")
+	for _, row := range table.Bounds {
+		urns := make([]*TaggedUrn, 0, len(row.Urns))
+		for _, s := range row.Urns {
+			u, err := NewTaggedUrnFromString(s)
+			require.NoError(t, err)
+			urns = append(urns, u)
+		}
+		expected, err := NewTaggedUrnFromString(row.Bound)
+		require.NoError(t, err)
+		bound, err := LeastUpperBound("media", urns)
+		require.NoError(t, err)
+		if !bound.Equals(expected) {
+			wrong = append(wrong, fmt.Sprintf("bound of %v: %s, model %s", row.Urns, bound.ToString(), row.Bound))
+		}
+	}
+	require.True(t, len(table.Refines) > 4000 && len(table.Scores) > 60 && len(table.Bounds) > 5000, "the table is the full one")
 	if len(wrong) > 0 {
 		t.Fatalf("%d answer(s) differ from the model, e.g.\n  %v", len(wrong), wrong[:min(8, len(wrong))])
 	}

@@ -80,6 +80,7 @@ func main() {
 | `Specificity()` | Get graded specificity score |
 | `SpecificityTuple()` | Get (exact, mustHaveAny, mustNot) counts |
 | `IsMoreSpecificThan(other)` | Compare specificity with another URN |
+| `LeastUpperBound(prefix, urns)` | The most specific URN every one of `urns` conforms to, made by the proved model |
 | `ToString()` | Get canonical string representation |
 | `Hash()` | Get SHA256 hash of canonical form |
 

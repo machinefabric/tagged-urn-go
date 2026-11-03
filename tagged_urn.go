@@ -779,6 +779,50 @@ func (c *TaggedUrn) MaySatisfy(pattern *TaggedUrn) (bool, error) {
 	return formal.MeetsClosed(c.formal, pattern.formal)
 }
 
+// LeastUpperBound is the most specific URN every one of urns conforms to: their
+// common denominator.
+//
+// Key by key, the bound allows every state some input allows. Where no single
+// form says exactly that, there is no least bound at all — `ext=png` and
+// `ext=jpeg` are both `ext`, both `ext!=pdf` and both `ext!=gif` — so the bound
+// is the least among those that exclude only values the inputs name: here
+// `ext`. When one input holds all the others, the bound is that input. The bound
+// of no URNs is the URN with no tags.
+//
+// Made by the proved model (formal.LeastUpperBound), whose theorems say every
+// input conforms to the bound and the bound conforms to every such bound of
+// them. Every URN must have the prefix; another is a PrefixMismatch error.
+func LeastUpperBound(prefix string, urns []*TaggedUrn) (*TaggedUrn, error) {
+	prefix = strings.ToLower(prefix)
+	handles := make([]formal.Wf, 0, len(urns))
+	for _, u := range urns {
+		if u == nil {
+			return nil, &TaggedUrnError{Code: ErrorInvalidFormat, Message: "cannot bound a nil URN"}
+		}
+		handles = append(handles, u.formal)
+	}
+	tags, err := formal.LeastUpperBound(prefix, handles)
+	if err != nil {
+		return nil, err
+	}
+	if !tags.Valid {
+		for _, u := range urns {
+			if u.prefix != prefix {
+				return nil, &TaggedUrnError{
+					Code:    ErrorPrefixMismatch,
+					Message: fmt.Sprintf("cannot bound URNs with different prefixes: '%s' vs '%s'", prefix, u.prefix),
+				}
+			}
+		}
+		panic(fmt.Sprintf("tagged-urn: the model made no bound of URNs that all have the prefix %s", prefix))
+	}
+	result := make(map[string]string, len(tags.Value))
+	for _, p := range tags.Value {
+		result[p.First] = p.Second
+	}
+	return assemble(prefix, result), nil
+}
+
 // samePrefix refuses a comparison of URNs with different prefixes.
 func samePrefix(a, b *TaggedUrn) error {
 	if a.prefix != b.prefix {

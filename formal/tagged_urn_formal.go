@@ -268,6 +268,20 @@ func Equivalent(a Wf, b Wf) (result bool, err error) {
 	return lungo.DecodeValue(program(), status, out, lungo.BoolType)
 }
 
+// LeastUpperBound is Lean's TaggedUrn.Exec.leastUpperBound : String → List TaggedUrn.Exec.Wf → Option (List (String × String))
+func LeastUpperBound(scheme string, us []Wf) (result lungo.Option[[]lungo.Pair[string, string]], err error) {
+	w := lungo.NewCall(program())
+	defer w.Release()
+	if err = lungo.StringType.Encode(w, scheme); err != nil {
+		return
+	}
+	if err = lungo.ListType(WfType()).Encode(w, us); err != nil {
+		return
+	}
+	status, out := call(C.lungo_entry(C.tagged_urn_formal__call_l_TaggedUrn_dExec_dleastUpperBound), w.Bytes())
+	return lungo.DecodeValue(program(), status, out, lungo.OptionType(lungo.ListType(lungo.PairType(lungo.StringType, lungo.StringType))))
+}
+
 // Make is Lean's TaggedUrn.Exec.make : String → List (String × TaggedUrn.Constraint) → Option TaggedUrn.Exec.Wf
 func Make(scheme string, tags []lungo.Pair[string, Constraint]) (result lungo.Option[Wf], err error) {
 	w := lungo.NewCall(program())

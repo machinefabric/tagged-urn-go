@@ -2185,3 +2185,30 @@ func Test0088_BuilderRejectsEmptyValue(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "empty value")
 }
+
+// TEST0392: the bound of several URNs: the values they share, a key every one sets to differing values as "some value", the coarser of two comparable URNs, nothing for none, and another prefix refused
+func Test0392_LeastUpperBound(t *testing.T) {
+	p := func(s string) *TaggedUrn {
+		u, err := NewTaggedUrnFromString(s)
+		require.NoError(t, err)
+		return u
+	}
+	bound := func(urns ...*TaggedUrn) string {
+		b, err := LeastUpperBound("media", urns)
+		require.NoError(t, err)
+		return b.ToString()
+	}
+
+	assert.Equal(t, p("media:ext;image").ToString(), bound(p("media:ext=png;image"), p("media:ext=jpeg;image")))
+	// One input already holds the other: the bound is that input, not the wider `ext`.
+	assert.Equal(t, p("media:ext!=pdf").ToString(), bound(p("media:ext=png"), p("media:ext!=pdf")))
+	// A key one input omits says nothing there, so the bound says nothing either.
+	assert.Equal(t, p("media:image").ToString(), bound(p("media:ext=png;image"), p("media:image")))
+	assert.Equal(t, "media:", bound())
+
+	_, err := LeastUpperBound("media", []*TaggedUrn{p("media:image"), p("cap:image")})
+	require.Error(t, err)
+	capError, ok := err.(*TaggedUrnError)
+	require.True(t, ok)
+	assert.Equal(t, ErrorPrefixMismatch, capError.Code)
+}
