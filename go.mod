@@ -5,7 +5,7 @@ go 1.22
 
 // The relations are decided by code generated from ../formal (package formal), which runs
 // on lungo's runtime through lungo-go, at exactly the lungo release that generated it.
-require github.com/machinefabric/lungo-go v1.117.0
+require github.com/machinefabric/lungo-go v0.0.0
 
 require github.com/stretchr/testify v1.8.4
 
@@ -14,3 +14,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// MFR_LOCAL_LIBS: lungo-go from the local distribution built from the working copy of
+// lungo, rather than a published release. The require above carries the v0.0.0
+// placeholder a replaced module takes. Re-render without it before committing or releasing.
+replace github.com/machinefabric/lungo-go => ../../.sdx/disposable/build/lungo/distribution/go
