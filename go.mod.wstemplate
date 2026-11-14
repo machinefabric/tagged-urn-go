@@ -5,7 +5,7 @@ go 1.22
 
 // The relations are decided by code generated from ../formal (package formal), which runs
 // on lungo's runtime through lungo-go, at exactly the lungo release that generated it.
-require github.com/machinefabric/lungo-go v{% if env.MFR_LOCAL_LIBS %}0.0.0{% else %}{{ projects.lungo_go.latest_remote_version }}{% endif %}
+require github.com/machinefabric/lungo-go v{% if env.MFR_LIBS == "working" %}0.0.0{% elif env.MFR_LIBS == "channel" %}0.0.0{% else %}{{ projects.lungo_go.latest_remote_version }}{% endif %}
 
 require github.com/stretchr/testify v1.8.4
 
@@ -14,10 +14,14 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-{%- if env.MFR_LOCAL_LIBS %}
+{%- if env.MFR_LIBS == "working" %}
 
-// MFR_LOCAL_LIBS: lungo-go from the local distribution built from the working copy of
+// MFR_LIBS "working": lungo-go from the local distribution built from the working copy of
 // lungo, rather than a published release. The require above carries the v0.0.0
 // placeholder a replaced module takes. Re-render without it before committing or releasing.
 replace github.com/machinefabric/lungo-go => {{ build.root_from_here }}/lungo/distribution/go
+{%- elif env.MFR_LIBS == "channel" %}
+
+// MFR_LIBS "channel": the release fetched under the build root, in place of the public one.
+replace github.com/machinefabric/lungo-go => {{ build.root_from_here }}/libraries/lungo-go/{{ projects.lungo_rs.version }}/lungo-go-{{ projects.lungo_rs.version }}
 {%- endif %}
