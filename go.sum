@@ -14,6 +14,8 @@ github.com/machinefabric/lungo-go v1.117.0 h1:lt+bEMzOluMWrEP2iobllh9T41Oaip9t6c
 github.com/machinefabric/lungo-go v1.117.0/go.mod h1:EZTrYKKV/3wnLyP7O6jemA3923OcazLAZlVUGFUw5Uk=
 github.com/machinefabric/lungo-go v1.120.164 h1:MNtE+0HmW6oRObem4NVZr/kGSvGS94GSFWvmZ0cIobk=
 github.com/machinefabric/lungo-go v1.120.164/go.mod h1:EZTrYKKV/3wnLyP7O6jemA3923OcazLAZlVUGFUw5Uk=
+github.com/machinefabric/lungo-go v1.126.0 h1:d+sqKG6GI3J+XbOOHnrI5VdUn85RYCznJufsAUd+ZjQ=
+github.com/machinefabric/lungo-go v1.126.0/go.mod h1:EZTrYKKV/3wnLyP7O6jemA3923OcazLAZlVUGFUw5Uk=
 github.com/machinefabric/lungo-go v1.78.3254 h1:xWNXyACQfTjshQgd5R7/FLzNEnmLGMF3tzAP9Ejc6LQ=
 github.com/machinefabric/lungo-go v1.78.3254/go.mod h1:yXXsGau7ww37IBgFrkuli1854jLhff2BFaSlkqACoto=
 github.com/machinefabric/lungo-go v1.82.64 h1:0hd+4X/YzAXySBFuN2251Dp1j+SiY86qeV8ng0OIigc=
