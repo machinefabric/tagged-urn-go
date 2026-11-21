@@ -1122,9 +1122,12 @@ func (c *TaggedUrn) IsComparable(other *TaggedUrn) (bool, error) {
 	return formal.Comparable(c.formal, other.formal)
 }
 
-// Compare returns -1, 0, or 1: by prefix, then by canonical text. Two URNs
-// compare equal exactly when they are equal, since every URN prints so that it
-// reads back as itself.
+// Compare returns -1, 0, or 1, by the URNs' parts, never their text: the
+// prefix, then the tags in key order, each by its key, then by its
+// constraint's form in the truth table's order (unconstrained, optionalNot,
+// present, presentNot, exact, absent), then by its value; a URN whose tags are
+// the beginning of another's stands first. The text would order `file;sample`
+// after `file-path`, wherever one key is the beginning of another.
 func (c *TaggedUrn) Compare(other *TaggedUrn) int {
 	if c == nil && other == nil {
 		return 0
@@ -1138,7 +1141,60 @@ func (c *TaggedUrn) Compare(other *TaggedUrn) int {
 	if c.prefix != other.prefix {
 		return strings.Compare(c.prefix, other.prefix)
 	}
-	return strings.Compare(c.ToString(), other.ToString())
+	keysA := c.sortedKeys()
+	keysB := other.sortedKeys()
+	for i := 0; i < len(keysA) && i < len(keysB); i++ {
+		if cmp := strings.Compare(keysA[i], keysB[i]); cmp != 0 {
+			return cmp
+		}
+		formA, valueA := constraintPart(c.tags[keysA[i]])
+		formB, valueB := constraintPart(other.tags[keysB[i]])
+		if formA != formB {
+			if formA < formB {
+				return -1
+			}
+			return 1
+		}
+		if cmp := strings.Compare(valueA, valueB); cmp != 0 {
+			return cmp
+		}
+	}
+	switch {
+	case len(keysA) < len(keysB):
+		return -1
+	case len(keysA) > len(keysB):
+		return 1
+	}
+	return 0
+}
+
+func (c *TaggedUrn) sortedKeys() []string {
+	keys := make([]string, 0, len(c.tags))
+	for key := range c.tags {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// constraintPart is a stored constraint's place in the order of URNs: its
+// form, in the truth table's order, and its value.
+func constraintPart(c Constraint) (int, string) {
+	switch v := c.(type) {
+	case ConstraintUnconstrained:
+		return 0, ""
+	case ConstraintOptionalNot:
+		return 1, v.Value
+	case ConstraintPresent:
+		return 2, ""
+	case ConstraintPresentNot:
+		return 3, v.Value
+	case ConstraintExact:
+		return 4, v.Value
+	case ConstraintAbsent:
+		return 5, ""
+	}
+	panic(fmt.Sprintf("tagged-urn: stored constraint %#v", c))
 }
 
 // DeltaFrom computes the coordinate-space delta from base to c.

@@ -88,6 +88,7 @@ func main() {
 | `Specificity()` | Get graded specificity score |
 | `SpecificityTuple()` | Count tags by form: (absent, exact, presentNot, present, optionalNot) |
 | `IsMoreSpecificThan(other)` | Compare specificity with another URN |
+| `Compare(other)` | Order by parts: prefix, then each tag by key, constraint form, value |
 | `LeastUpperBound(prefix, urns)` | The most specific URN every one of `urns` conforms to, made by the proved model |
 | `ToString()` | Get canonical string representation |
 | `Hash()` | Get SHA256 hash of canonical form |
