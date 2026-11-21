@@ -2380,3 +2380,30 @@ func Test6756_QuotedValueIsLiteral(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, built.Equals(star))
 }
+
+// TEST7241: URNs are ordered by their parts, never their text: the prefix, then each tag in key order by key, then by its constraint's form (unconstrained, optionalNot, present, presentNot, exact, absent), then by its value
+func Test7241_UrnsAreOrderedByTheirParts(t *testing.T) {
+	before := func(a, b string) {
+		assert.Equal(t, -1, mustParse(t, a).Compare(mustParse(t, b)), "%s stands before %s", a, b)
+		assert.Equal(t, 1, mustParse(t, b).Compare(mustParse(t, a)), "%s stands after %s", b, a)
+	}
+
+	// The text orders file-path first; the parts order file first.
+	assert.Less(t, mustParse(t, "t:file-path").ToString(), mustParse(t, "t:file;sample").ToString())
+	before("t:file;sample", "t:file-path")
+	// The prefix decides first.
+	before("b:z", "c:a")
+	// A URN whose tags are the beginning of another's stands first.
+	before("t:file", "t:file;sample")
+	// One key, each form in the truth table's order.
+	forms := []string{"t:?x", "t:x?=v", "t:x", "t:x!=v", "t:x=v", "t:!x"}
+	for i := 0; i+1 < len(forms); i++ {
+		before(forms[i], forms[i+1])
+	}
+	// One form, values in their own order; a quoted value is a value.
+	before("t:x=ascii", "t:x=utf8")
+	before(`t:x="*"`, "t:x=a")
+	before("t:x?=a", "t:x?=b")
+	// Writing order is no part of it.
+	assert.Equal(t, 0, mustParse(t, "t:b;a").Compare(mustParse(t, "t:a;b")))
+}
