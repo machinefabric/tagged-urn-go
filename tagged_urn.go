@@ -1,25 +1,23 @@
 // Package taggedurn provides the fundamental tagged URN system with flat tag-based
 // naming, pattern matching, and graded specificity comparison.
 //
-// Special pattern values:
-//   - K=v: Must have key K with exact value v
-//   - K=*: Must have key K with any value (presence required)
-//   - K=!: Must NOT have key K (absence required)
-//   - K=?: No constraint on key K (explicit don't-care)
-//   - (missing): Same as K=? - no constraint
+// Each tag is stored as the constraint it writes (formal.Constraint, re-exported
+// here as Constraint):
+//   - K=v:  ConstraintExact — must have key K with exact value v
+//   - K:    ConstraintPresent — must have key K with any value
+//   - !K:   ConstraintAbsent — must NOT have key K
+//   - ?K:   ConstraintUnconstrained — no constraint on key K
+//   - K?=v: ConstraintOptionalNot — absent, or present and not v
+//   - K!=v: ConstraintPresentNot — present and not v
+//   - (missing): no constraint; never stored
 //
-// Graded specificity scoring:
-//   - Exact value (K=v): 3 points
-//   - Must-have-any (K=*): 2 points
-//   - Must-not-have (K=!): 1 point
-//   - Unspecified (K=?) or missing: 0 points
+// Graded specificity scoring: ?K 0, K?=v 1, K 2, K!=v 3, K=v 4, !K 5.
 package taggedurn
 
 import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -29,15 +27,30 @@ import (
 	"github.com/machinefabric/tagged-urn-go/formal"
 )
 
+// Constraint is what a tag writes about its key: one of the model's seven
+// forms. ConstraintMissing is never stored; it stands for a key a URN omits.
+type Constraint = formal.Constraint
+
+// The model's forms, by name.
+type (
+	ConstraintMissing       = formal.ConstraintMissing
+	ConstraintUnconstrained = formal.ConstraintUnconstrained
+	ConstraintOptionalNot   = formal.ConstraintOptionalNot
+	ConstraintPresent       = formal.ConstraintPresent
+	ConstraintPresentNot    = formal.ConstraintPresentNot
+	ConstraintExact         = formal.ConstraintExact
+	ConstraintAbsent        = formal.ConstraintAbsent
+)
+
 // TaggedUrn represents a tagged URN using flat, ordered tags with a configurable prefix.
 //
 // Examples:
 //   - cap:generate;ext=pdf;out=binary;target=thumbnail
-//   - cap:format=*;debug=!  (format required, debug forbidden)
+//   - cap:format;!debug  (format required, debug forbidden)
 //   - myapp:key="Value With Spaces"
 type TaggedUrn struct {
 	prefix string
-	tags   map[string]string
+	tags   map[string]Constraint
 	// The same URN on the proved model's side (package formal, generated from
 	// ../formal by lungo): its tags with the proof that their keys are strictly
 	// increasing. Every semantic question — does one refine another, are they
@@ -47,44 +60,37 @@ type TaggedUrn struct {
 	formal formal.Wf
 }
 
-// constraintOf is the model's form of a stored tag value (nil is a key the URN omits).
-func constraintOf(value *string) formal.Constraint {
-	if value == nil {
-		return formal.ConstraintMissing{}
+// orMissing is the model's form for a key: its constraint, or ConstraintMissing
+// for a key the URN omits.
+func orMissing(c Constraint, exists bool) Constraint {
+	if !exists {
+		return ConstraintMissing{}
 	}
-	v := *value
-	switch v {
-	case "?":
-		return formal.ConstraintUnconstrained{}
-	case "*":
-		return formal.ConstraintPresent{}
-	case "!":
-		return formal.ConstraintAbsent{}
-	}
-	if strings.HasPrefix(v, "?=") {
-		return formal.ConstraintOptionalNot{Value: v[2:]}
-	}
-	if strings.HasPrefix(v, "!=") {
-		return formal.ConstraintPresentNot{Value: v[2:]}
-	}
-	return formal.ConstraintExact{Value: v}
+	return c
 }
 
 // assemble is the one way a TaggedUrn is made: the fields and the model's handle,
-// together, from the same tags. The model refuses keys that are not strictly
-// increasing, and sorted map keys always are (Go orders strings by their UTF-8
-// bytes, which is the code-point order Lean's String < uses) — so a refusal, or
-// the runtime failing, is a broken invariant, and it panics.
-func assemble(prefix string, tags map[string]string) *TaggedUrn {
+// together, from the same tags. Every caller has already checked the prefix and
+// the keys and refused ConstraintMissing. The model refuses keys that are not
+// strictly increasing, and sorted map keys always are (Go orders strings by their
+// UTF-8 bytes, which is the code-point order Lean's String < uses) — so a refusal,
+// or the runtime failing, is a broken invariant, and it panics.
+func assemble(prefix string, tags map[string]Constraint) *TaggedUrn {
 	keys := make([]string, 0, len(tags))
 	for k := range tags {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	pairs := make([]lungo.Pair[string, formal.Constraint], 0, len(keys))
+	pairs := make([]lungo.Pair[string, Constraint], 0, len(keys))
 	for _, k := range keys {
-		v := tags[k]
-		pairs = append(pairs, lungo.Pair[string, formal.Constraint]{First: k, Second: constraintOf(&v)})
+		c := tags[k]
+		if c == nil {
+			panic(fmt.Sprintf("tagged-urn: key '%s' stored with no constraint", k))
+		}
+		if _, missing := c.(ConstraintMissing); missing {
+			panic(fmt.Sprintf("tagged-urn: key '%s' stored as Missing; a key with no constraint is omitted", k))
+		}
+		pairs = append(pairs, lungo.Pair[string, Constraint]{First: k, Second: c})
 	}
 	wf, err := formal.Make(prefix, pairs)
 	if err != nil {
@@ -124,8 +130,8 @@ const (
 // from the base or changed in the target.
 type TaggedUrnCoordinateDelta struct {
 	Prefix       string
-	Removed      map[string]string
-	Added        map[string]string
+	Removed      map[string]Constraint
+	Added        map[string]Constraint
 	RelationKind TaggedUrnRelationKind
 }
 
@@ -147,7 +153,7 @@ func (e *TaggedUrnError) Error() string {
 	return e.Message
 }
 
-// Error codes for tagged URN operations
+// Error codes for tagged URN operations. Code 7 is not used.
 const (
 	ErrorInvalidFormat         = 1
 	ErrorEmptyTag              = 2
@@ -155,7 +161,6 @@ const (
 	ErrorInvalidTagFormat      = 4
 	ErrorMissingPrefix         = 5
 	ErrorDuplicateKey          = 6
-	ErrorNumericKey            = 7
 	ErrorUnterminatedQuote     = 8
 	ErrorInvalidEscapeSequence = 9
 	ErrorEmptyPrefix           = 10
@@ -165,24 +170,26 @@ const (
 
 // Parser states for state machine.
 //
-// The parser handles six tag forms — the canonical alphabet of the
-// constraint truth table:
+// The parser reads the six tag forms — the canonical alphabet of the
+// constraint truth table — into the constraint each writes:
 //
-//	| Authored                | Canonical | Stored value | Score | Reading                                  |
-//	|-------------------------|-----------|--------------|------:|------------------------------------------|
-//	| `?x` ≡ `x?`             | `?x`      | "?"          |     0 | no constraint                            |
-//	| `?x=v` ≡ `x?=v`         | `x?=v`    | "?=v"        |     1 | absent OR (present and not v)            |
-//	| `x` ≡ `x=*`             | `x`       | "*"          |     2 | present with any value                   |
-//	| `!x=v` ≡ `x!=v`         | `x!=v`    | "!=v"        |     3 | present and not v                        |
-//	| `x=v`                   | `x=v`     | "v"          |     4 | present and exactly v (`v ∉ {?, !, *}`)  |
-//	| `!x` ≡ `x!`             | `!x`      | "!"          |     5 | absent (must-not-have)                   |
+//	| Authored                 | Canonical | Constraint     | Score | Reading                       |
+//	|--------------------------|-----------|----------------|------:|-------------------------------|
+//	| `?x` ≡ `x?` ≡ `x=?`      | `?x`      | Unconstrained  |     0 | no constraint                 |
+//	| `?x=v` ≡ `x?=v` ≡ `x=?v` | `x?=v`    | OptionalNot v  |     1 | absent OR (present and not v) |
+//	| `x` ≡ `x=*`              | `x`       | Present        |     2 | present with any value        |
+//	| `!x=v` ≡ `x!=v` ≡ `x=!v` | `x!=v`    | PresentNot v   |     3 | present and not v             |
+//	| `x=v`                    | `x=v`     | Exact v        |     4 | present and exactly v         |
+//	| `!x` ≡ `x!` ≡ `x=!`      | `!x`      | Absent         |     5 | absent (must-not-have)        |
 //
-// Qualifier `?` or `!` may appear EITHER as a key prefix (`?x`, `!x`,
-// `?x=v`, `!x=v`) OR as an infix immediately before `=` (`x?`, `x!`,
-// `x?=v`, `x!=v`). The two notations are exact aliases.
+// The qualifier `?` or `!` may appear as a key prefix (`?x`, `!x`, `?x=v`,
+// `!x=v`), as an infix immediately before `=` (`x?`, `x!`, `x?=v`, `x!=v`),
+// or as the first character of an unquoted value (`x=?v`, `x=!v`). The three
+// notations are exact aliases. A quoted value is literal: `x="?v"` is the
+// exact value `?v`, and `x="*"` the exact value `*`, never the marker.
 //
-// Disallowed (hard parse errors): `?x?`, `?x?=v`, `!x!=v`, `?!x`,
-// `!?x`, `?x=*`, `!x=*`, `?x=?`, `!x=?`, mixed prefix+infix.
+// Disallowed (hard parse errors): `?x?`, `?x?=v`, `!x!=v`, `?!x`, `!?x`,
+// `?x=?v`, `?x=*`, `!x=*`, `?x=?`, `x=?*`, `x=!?`, and an empty value.
 type parseState int
 
 const (
@@ -203,26 +210,87 @@ const (
 	stateExpectingSemiOrEnd
 )
 
-var numericPattern = regexp.MustCompile(`^[0-9]+$`)
+// isIdentifierStart checks if a character may begin a prefix or a key
+func isIdentifierStart(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
 
-// isValidKeyChar checks if a character is valid for a key
+// isValidKeyChar checks if a character may stand in a prefix or key after its first
 func isValidKeyChar(c rune) bool {
-	return unicode.IsLetter(c) || unicode.IsDigit(c) || c == '_' || c == '-' || c == '/' || c == ':' || c == '.'
+	return isIdentifierStart(c) || (c >= '0' && c <= '9') || c == '-'
 }
 
-// isValidUnquotedValueChar checks if a character is valid for an unquoted value
+// identifier is s as an identifier — an ASCII letter, then ASCII letters, digits
+// and `-` — lowered; what names it in the error ("prefix", "key").
+func identifier(what, s string) (string, error) {
+	if s == "" {
+		if what == "prefix" {
+			return "", &TaggedUrnError{Code: ErrorEmptyPrefix, Message: "tagged URN prefix cannot be empty"}
+		}
+		return "", &TaggedUrnError{Code: ErrorEmptyTag, Message: fmt.Sprintf("empty %s", what)}
+	}
+	for pos, c := range []rune(s) {
+		allowed := isValidKeyChar(c)
+		if pos == 0 {
+			allowed = isIdentifierStart(c)
+		}
+		if !allowed {
+			return "", &TaggedUrnError{
+				Code:    ErrorInvalidCharacter,
+				Message: fmt.Sprintf("invalid character '%c' in %s at position %d", c, what, pos),
+			}
+		}
+	}
+	return strings.ToLower(s), nil
+}
+
+// checkConstraint refuses a constraint a URN cannot write for key: none at all,
+// ConstraintMissing (a key with no constraint is omitted), or an empty value.
+func checkConstraint(key string, c Constraint) error {
+	switch v := c.(type) {
+	case nil, ConstraintMissing:
+		return &TaggedUrnError{
+			Code:    ErrorInvalidTagFormat,
+			Message: fmt.Sprintf("key '%s' given no constraint: a key with no constraint is omitted", key),
+		}
+	case ConstraintExact:
+		if v.Value == "" {
+			return emptyValue(key)
+		}
+	case ConstraintOptionalNot:
+		if v.Value == "" {
+			return emptyValue(key)
+		}
+	case ConstraintPresentNot:
+		if v.Value == "" {
+			return emptyValue(key)
+		}
+	}
+	return nil
+}
+
+func emptyValue(key string) error {
+	return &TaggedUrnError{Code: ErrorEmptyTag, Message: fmt.Sprintf("empty value for key '%s'", key)}
+}
+
+// isValidUnquotedValueChar checks if a character may stand in an unquoted value:
+// anything but the separators `;` `=`, the quoting characters `"` `\`, and
+// whitespace.
 func isValidUnquotedValueChar(c rune) bool {
-	return unicode.IsLetter(c) || unicode.IsDigit(c) || c == '_' || c == '-' || c == '/' || c == ':' || c == '.' || c == '*' || c == '?' || c == '!'
+	return c != ';' && c != '=' && c != '"' && c != '\\' && !unicode.IsSpace(c)
 }
 
-// needsQuoting checks if a value needs quoting for serialization
+// needsQuoting reports whether a value must be quoted to read back as itself: it
+// holds a character a bare value cannot, an uppercase letter (a bare value is
+// lowered), or begins with `*`, `?` or `!` (which a bare value reads as a sigil or
+// a qualifier).
 func needsQuoting(value string) bool {
 	for _, c := range value {
-		if c == ';' || c == '=' || c == '"' || c == '\\' || c == ' ' || unicode.IsUpper(c) {
+		if !isValidUnquotedValueChar(c) || unicode.IsUpper(c) {
 			return true
 		}
 	}
-	return false
+	return strings.HasPrefix(value, "*") || strings.HasPrefix(value, "?") || strings.HasPrefix(value, "!")
 }
 
 // quoteValue quotes a value for serialization
@@ -237,6 +305,101 @@ func quoteValue(value string) string {
 	}
 	result.WriteRune('"')
 	return result.String()
+}
+
+// writeValue is a value as it is written: bare, or quoted when it must be.
+func writeValue(value string) string {
+	if needsQuoting(value) {
+		return quoteValue(value)
+	}
+	return value
+}
+
+// qualified is the constraint a value writes under a qualifier (0 for none).
+func qualified(qualifier rune, value string) Constraint {
+	switch qualifier {
+	case 0:
+		return ConstraintExact{Value: value}
+	case '?':
+		return ConstraintOptionalNot{Value: value}
+	case '!':
+		return ConstraintPresentNot{Value: value}
+	}
+	panic(fmt.Sprintf("invalid qualifier rune: %q", qualifier))
+}
+
+// refuseSigilUnderQualifier refuses a qualifier on a sigil: they make
+// incompatible claims.
+func refuseSigilUnderQualifier(qualifier rune, key, value string) error {
+	if value == "*" || value == "?" || value == "!" {
+		return &TaggedUrnError{
+			Code: ErrorInvalidCharacter,
+			Message: fmt.Sprintf(
+				"qualifier '%c' on key '%s' cannot combine with sigil value '%s': "+
+					"use a real value or drop the qualifier",
+				qualifier, key, value),
+		}
+	}
+	return nil
+}
+
+// canonicalNoValue is the constraint of a value-less tag, given its qualifier.
+func canonicalNoValue(qualifier rune) Constraint {
+	switch qualifier {
+	case 0:
+		return ConstraintPresent{}
+	case '?':
+		return ConstraintUnconstrained{}
+	case '!':
+		return ConstraintAbsent{}
+	}
+	panic(fmt.Sprintf("invalid qualifier rune: %q", qualifier))
+}
+
+// canonicalizeValue is the constraint a parsed (qualifier, value) pair writes. A
+// quoted value is literal: Exact, or OptionalNot/PresentNot under a qualifier.
+// An unquoted `*`, `?` or `!` is a sigil; an unquoted value that begins with
+// `?` or `!` is that qualifier (`x=?v` ≡ `x?=v`). A qualifier on an unquoted
+// sigil, or a second qualifier, is refused.
+func canonicalizeValue(qualifier rune, quoted bool, key, value string) (Constraint, error) {
+	if value == "" {
+		return nil, emptyValue(key)
+	}
+	if quoted {
+		return qualified(qualifier, value), nil
+	}
+	if qualifier == 0 {
+		switch value {
+		case "*":
+			return ConstraintPresent{}, nil
+		case "?":
+			return ConstraintUnconstrained{}, nil
+		case "!":
+			return ConstraintAbsent{}, nil
+		}
+		first := rune(value[0])
+		if first == '?' || first == '!' {
+			rest := value[1:]
+			if err := refuseSigilUnderQualifier(first, key, rest); err != nil {
+				return nil, err
+			}
+			return qualified(first, rest), nil
+		}
+		return ConstraintExact{Value: value}, nil
+	}
+	if len(value) > 1 && (value[0] == '?' || value[0] == '!') {
+		return nil, &TaggedUrnError{
+			Code: ErrorInvalidCharacter,
+			Message: fmt.Sprintf(
+				"qualifier '%c' on key '%s' cannot combine with a second qualifier in value '%s': "+
+					"quote the value to make it literal",
+				qualifier, key, value),
+		}
+	}
+	if err := refuseSigilUnderQualifier(qualifier, key, value); err != nil {
+		return nil, err
+	}
+	return qualified(qualifier, value), nil
 }
 
 // NewTaggedUrnFromString creates a tagged URN from a string
@@ -282,9 +445,12 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 		}
 	}
 
-	prefix := strings.ToLower(s[:colonPos])
+	prefix, err := identifier("prefix", s[:colonPos])
+	if err != nil {
+		return nil, err
+	}
 	tagsPart := s[colonPos+1:]
-	tags := make(map[string]string)
+	tags := make(map[string]Constraint)
 
 	// Handle empty tagged URN (prefix: with no tags or just semicolon)
 	if tagsPart == "" || tagsPart == ";" {
@@ -303,79 +469,27 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 	// Reset to 0 on each finishTag.
 	var qualifier rune
 
-	canonicalNoValue := func() string {
-		switch qualifier {
-		case 0:
-			return "*"
-		case '?':
-			return "?"
-		case '!':
-			return "!"
-		}
-		panic(fmt.Sprintf("invalid qualifier rune: %q", qualifier))
-	}
-
-	canonicalizeValue := func() error {
-		if qualifier == 0 {
-			return nil
-		}
-		v := currentValue.String()
-		if v == "*" || v == "?" || v == "!" {
-			return &TaggedUrnError{
-				Code: ErrorInvalidCharacter,
-				Message: fmt.Sprintf(
-					"qualifier '%c' on key '%s' cannot combine with sigil value '%s': "+
-						"use a real value or drop the qualifier",
-					qualifier, currentKey.String(), v),
-			}
-		}
-		var b strings.Builder
-		b.WriteRune(qualifier)
-		b.WriteRune('=')
-		b.WriteString(v)
-		currentValue.Reset()
-		currentValue.WriteString(b.String())
-		return nil
-	}
-
-	finishTag := func() error {
+	finishTag := func(constraint Constraint) error {
 		key := currentKey.String()
-		value := currentValue.String()
-
-		if key == "" {
-			return &TaggedUrnError{
-				Code:    ErrorEmptyTag,
-				Message: "empty key",
-			}
-		}
-		if value == "" {
-			return &TaggedUrnError{
-				Code:    ErrorEmptyTag,
-				Message: fmt.Sprintf("empty value for key '%s'", key),
-			}
-		}
-
-		// Check for duplicate keys
 		if _, exists := tags[key]; exists {
 			return &TaggedUrnError{
 				Code:    ErrorDuplicateKey,
 				Message: fmt.Sprintf("duplicate tag key: %s", key),
 			}
 		}
-
-		// Validate key cannot be purely numeric
-		if numericPattern.MatchString(key) {
-			return &TaggedUrnError{
-				Code:    ErrorNumericKey,
-				Message: fmt.Sprintf("tag key cannot be purely numeric: %s", key),
-			}
-		}
-
-		tags[key] = value
+		tags[key] = constraint
 		currentKey.Reset()
 		currentValue.Reset()
 		qualifier = 0
 		return nil
+	}
+
+	finishValue := func(quoted bool) error {
+		constraint, err := canonicalizeValue(qualifier, quoted, currentKey.String(), currentValue.String())
+		if err != nil {
+			return err
+		}
+		return finishTag(constraint)
 	}
 
 	for pos < len(chars) {
@@ -392,7 +506,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 			} else if c == '!' {
 				qualifier = '!'
 				state = stateAfterPrefixBang
-			} else if isValidKeyChar(c) {
+			} else if isIdentifierStart(c) {
 				currentKey.WriteRune(unicode.ToLower(c))
 				state = stateInKey
 			} else {
@@ -403,7 +517,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 			}
 
 		case stateAfterPrefixQuestion, stateAfterPrefixBang:
-			if isValidKeyChar(c) {
+			if isIdentifierStart(c) {
 				currentKey.WriteRune(unicode.ToLower(c))
 				state = stateInKey
 			} else {
@@ -417,12 +531,6 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 
 		case stateInKey:
 			if c == '=' {
-				if currentKey.Len() == 0 {
-					return nil, &TaggedUrnError{
-						Code:    ErrorEmptyTag,
-						Message: "empty key",
-					}
-				}
 				state = stateExpectingValue
 			} else if c == '?' {
 				if qualifier != 0 {
@@ -447,14 +555,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 				qualifier = '!'
 				state = stateInKeyAfterBang
 			} else if c == ';' {
-				if currentKey.Len() == 0 {
-					return nil, &TaggedUrnError{
-						Code:    ErrorEmptyTag,
-						Message: "empty key",
-					}
-				}
-				currentValue.WriteString(canonicalNoValue())
-				if err := finishTag(); err != nil {
+				if err := finishTag(canonicalNoValue(qualifier)); err != nil {
 					return nil, err
 				}
 				state = stateExpectingKey
@@ -471,8 +572,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 			if c == '=' {
 				state = stateExpectingValue
 			} else if c == ';' {
-				currentValue.WriteString(canonicalNoValue())
-				if err := finishTag(); err != nil {
+				if err := finishTag(canonicalNoValue(qualifier)); err != nil {
 					return nil, err
 				}
 				state = stateExpectingKey
@@ -489,12 +589,9 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 			if c == '"' {
 				state = stateInQuotedValue
 			} else if c == ';' {
-				return nil, &TaggedUrnError{
-					Code:    ErrorEmptyTag,
-					Message: fmt.Sprintf("empty value for key '%s'", currentKey.String()),
-				}
+				return nil, emptyValue(currentKey.String())
 			} else if isValidUnquotedValueChar(c) {
-				currentValue.WriteRune(unicode.ToLower(c))
+				currentValue.WriteRune(asciiLower(c))
 				state = stateInUnquotedValue
 			} else {
 				return nil, &TaggedUrnError{
@@ -505,15 +602,12 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 
 		case stateInUnquotedValue:
 			if c == ';' {
-				if err := canonicalizeValue(); err != nil {
-					return nil, err
-				}
-				if err := finishTag(); err != nil {
+				if err := finishValue(false); err != nil {
 					return nil, err
 				}
 				state = stateExpectingKey
 			} else if isValidUnquotedValueChar(c) {
-				currentValue.WriteRune(unicode.ToLower(c))
+				currentValue.WriteRune(asciiLower(c))
 			} else {
 				return nil, &TaggedUrnError{
 					Code:    ErrorInvalidCharacter,
@@ -543,10 +637,7 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 
 		case stateExpectingSemiOrEnd:
 			if c == ';' {
-				if err := canonicalizeValue(); err != nil {
-					return nil, err
-				}
-				if err := finishTag(); err != nil {
+				if err := finishValue(true); err != nil {
 					return nil, err
 				}
 				state = stateExpectingKey
@@ -562,11 +653,12 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 	}
 
 	switch state {
-	case stateInUnquotedValue, stateExpectingSemiOrEnd:
-		if err := canonicalizeValue(); err != nil {
+	case stateInUnquotedValue:
+		if err := finishValue(false); err != nil {
 			return nil, err
 		}
-		if err := finishTag(); err != nil {
+	case stateExpectingSemiOrEnd:
+		if err := finishValue(true); err != nil {
 			return nil, err
 		}
 	case stateExpectingKey:
@@ -581,45 +673,58 @@ func NewTaggedUrnFromString(s string) (*TaggedUrn, error) {
 			Code:    ErrorEmptyTag,
 			Message: fmt.Sprintf("qualifier '%c' at end of input has no key", qualifier),
 		}
-	case stateInKey:
-		if currentKey.Len() == 0 {
-			return nil, &TaggedUrnError{
-				Code:    ErrorEmptyTag,
-				Message: "empty key",
-			}
-		}
-		currentValue.WriteString(canonicalNoValue())
-		if err := finishTag(); err != nil {
-			return nil, err
-		}
-	case stateInKeyAfterQuestion, stateInKeyAfterBang:
-		currentValue.WriteString(canonicalNoValue())
-		if err := finishTag(); err != nil {
+	case stateInKey, stateInKeyAfterQuestion, stateInKeyAfterBang:
+		if err := finishTag(canonicalNoValue(qualifier)); err != nil {
 			return nil, err
 		}
 	case stateExpectingValue:
-		return nil, &TaggedUrnError{
-			Code:    ErrorEmptyTag,
-			Message: fmt.Sprintf("empty value for key '%s'", currentKey.String()),
-		}
+		return nil, emptyValue(currentKey.String())
 	}
 
 	return assemble(prefix, tags), nil
 }
 
-// NewTaggedUrnFromTags creates a tagged URN from tags with a specified prefix (required)
-// Keys are normalized to lowercase; values are preserved as-is
-func NewTaggedUrnFromTags(prefix string, tags map[string]string) *TaggedUrn {
-	result := make(map[string]string)
-	for k, v := range tags {
-		result[strings.ToLower(k)] = v
+// asciiLower lowers an ASCII letter and leaves every other character as it is,
+// as unquoted values are lowered.
+func asciiLower(c rune) rune {
+	if c >= 'A' && c <= 'Z' {
+		return c + ('a' - 'A')
 	}
-	return assemble(strings.ToLower(prefix), result)
+	return c
+}
+
+// NewTaggedUrnFromTags creates a tagged URN from a prefix and its tags. The prefix
+// and every key must be identifiers (an ASCII letter, then ASCII letters, digits
+// and `-`) and are lowered; every constraint must be one a URN can write.
+func NewTaggedUrnFromTags(prefix string, tags map[string]Constraint) (*TaggedUrn, error) {
+	p, err := identifier("prefix", prefix)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]Constraint, len(tags))
+	for k, v := range tags {
+		key, err := identifier("key", k)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkConstraint(key, v); err != nil {
+			return nil, err
+		}
+		if _, exists := result[key]; exists {
+			return nil, &TaggedUrnError{Code: ErrorDuplicateKey, Message: fmt.Sprintf("duplicate tag key: %s", key)}
+		}
+		result[key] = v
+	}
+	return assemble(p, result), nil
 }
 
 // Empty creates an empty tagged URN with the specified prefix (required)
-func Empty(prefix string) *TaggedUrn {
-	return assemble(strings.ToLower(prefix), make(map[string]string))
+func Empty(prefix string) (*TaggedUrn, error) {
+	p, err := identifier("prefix", prefix)
+	if err != nil {
+		return nil, err
+	}
+	return assemble(p, make(map[string]Constraint)), nil
 }
 
 // GetPrefix returns the prefix of this tagged URN
@@ -627,55 +732,66 @@ func (c *TaggedUrn) GetPrefix() string {
 	return c.prefix
 }
 
-// GetTag returns the value of a specific tag
-// Key is normalized to lowercase for lookup
-func (c *TaggedUrn) GetTag(key string) (string, bool) {
+// GetTag returns the constraint the URN writes for key, and whether it mentions
+// it. Key is normalized to lowercase for lookup.
+func (c *TaggedUrn) GetTag(key string) (Constraint, bool) {
 	value, exists := c.tags[strings.ToLower(key)]
 	return value, exists
 }
 
+// Constraint returns the constraint the URN writes for key, ConstraintMissing
+// when it does not mention it: the model's form of the key.
+func (c *TaggedUrn) Constraint(key string) Constraint {
+	value, exists := c.tags[strings.ToLower(key)]
+	return orMissing(value, exists)
+}
+
 // AllTags returns a copy of all tags in this URN
-func (c *TaggedUrn) AllTags() map[string]string {
-	result := make(map[string]string, len(c.tags))
+func (c *TaggedUrn) AllTags() map[string]Constraint {
+	result := make(map[string]Constraint, len(c.tags))
 	for k, v := range c.tags {
 		result[k] = v
 	}
 	return result
 }
 
-// HasTag checks if this URN has a specific tag with a specific value
-// Key is normalized to lowercase; value comparison is case-sensitive
+// HasTag reports whether this URN writes the exact value value for key
+// (`key=value`). Key is normalized to lowercase; value comparison is case-sensitive.
 func (c *TaggedUrn) HasTag(key, value string) bool {
-	tagValue, exists := c.tags[strings.ToLower(key)]
-	return exists && tagValue == value
+	exact, ok := c.tags[strings.ToLower(key)].(ConstraintExact)
+	return ok && exact.Value == value
 }
 
-// HasMarkerTag checks whether a marker tag (a tag whose value is "*") is
-// present at the given key. Equivalent to HasTag(tagName, "*") but
-// expresses authorial intent: this tag is present as a marker (a
-// wildcard-valued tag that serializes as just the key), not as a
-// key=value pair. Example: "cap:constrained;..." has marker tag
+// HasMarkerTag reports whether tagName is present as a marker (ConstraintPresent,
+// written as just the key). Example: "cap:constrained;..." has marker tag
 // "constrained".
 func (c *TaggedUrn) HasMarkerTag(tagName string) bool {
-	tagValue, exists := c.tags[strings.ToLower(tagName)]
-	return exists && tagValue == "*"
+	_, ok := c.tags[strings.ToLower(tagName)].(ConstraintPresent)
+	return ok
 }
 
-// WithTag returns a new tagged URN with an added or updated tag
-// Key is normalized to lowercase; value is preserved as-is
-func (c *TaggedUrn) WithTag(key, value string) *TaggedUrn {
-	newTags := make(map[string]string)
-	for k, v := range c.tags {
-		newTags[k] = v
+// WithTag returns a new tagged URN with an added or replaced tag. The key must be
+// an identifier and is lowered; the constraint must be one a URN can write.
+func (c *TaggedUrn) WithTag(key string, constraint Constraint) (*TaggedUrn, error) {
+	k, err := identifier("key", key)
+	if err != nil {
+		return nil, err
 	}
-	newTags[strings.ToLower(key)] = value
-	return assemble(c.prefix, newTags)
+	if err := checkConstraint(k, constraint); err != nil {
+		return nil, err
+	}
+	newTags := make(map[string]Constraint, len(c.tags)+1)
+	for tk, tv := range c.tags {
+		newTags[tk] = tv
+	}
+	newTags[k] = constraint
+	return assemble(c.prefix, newTags), nil
 }
 
 // WithoutTag returns a new tagged URN with a tag removed
 // Key is normalized to lowercase for case-insensitive removal
 func (c *TaggedUrn) WithoutTag(key string) *TaggedUrn {
-	newTags := make(map[string]string)
+	newTags := make(map[string]Constraint)
 	key = strings.ToLower(key)
 	for k, v := range c.tags {
 		if k != key {
@@ -791,9 +907,13 @@ func (c *TaggedUrn) MaySatisfy(pattern *TaggedUrn) (bool, error) {
 //
 // Made by the proved model (formal.LeastUpperBound), whose theorems say every
 // input conforms to the bound and the bound conforms to every such bound of
-// them. Every URN must have the prefix; another is a PrefixMismatch error.
+// them, and no tag of it is ConstraintMissing. The prefix must be an
+// identifier, and every URN must have it; another is a PrefixMismatch error.
 func LeastUpperBound(prefix string, urns []*TaggedUrn) (*TaggedUrn, error) {
-	prefix = strings.ToLower(prefix)
+	prefix, err := identifier("prefix", prefix)
+	if err != nil {
+		return nil, err
+	}
 	handles := make([]formal.Wf, 0, len(urns))
 	for _, u := range urns {
 		if u == nil {
@@ -816,7 +936,7 @@ func LeastUpperBound(prefix string, urns []*TaggedUrn) (*TaggedUrn, error) {
 		}
 		panic(fmt.Sprintf("tagged-urn: the model made no bound of URNs that all have the prefix %s", prefix))
 	}
-	result := make(map[string]string, len(tags.Value))
+	result := make(map[string]Constraint, len(tags.Value))
 	for _, p := range tags.Value {
 		result[p.First] = p.Second
 	}
@@ -834,65 +954,25 @@ func samePrefix(a, b *TaggedUrn) error {
 	return nil
 }
 
-// formKind classifies a stored tag value into one of the six
-// canonical constraint forms (plus "missing" for nil). The remaining
-// matcher logic operates on (kind, optional value) pairs uniformly.
-type formKind int
-
-const (
-	formMissing          formKind = iota // key absent from tag map
-	formNoConstraint                     // "?" — no constraint
-	formAbsentOrNotValue                 // "?=v" — absent OR (present and not v)
-	formMustHaveAny                      // "*" — present with any value
-	formPresentNotValue                  // "!=v" — present and not v
-	formExact                            // exact value
-	formMustNotHave                      // "!" — must not have
-)
-
-// classifyForm parses the stored value into (kind, raw value).
-// The returned value is the inner v for ?=v and !=v, the literal
-// value for exact, and "" for the sigil-only forms.
-func classifyForm(value *string) (formKind, string) {
-	if value == nil {
-		return formMissing, ""
-	}
-	v := *value
-	switch v {
-	case "?":
-		return formNoConstraint, ""
-	case "*":
-		return formMustHaveAny, ""
-	case "!":
-		return formMustNotHave, ""
-	}
-	if strings.HasPrefix(v, "?=") {
-		return formAbsentOrNotValue, v[2:]
-	}
-	if strings.HasPrefix(v, "!=") {
-		return formPresentNotValue, v[2:]
-	}
-	return formExact, v
-}
-
-// ValuesMatch decides one key: does the instance's stored value (nil for a key
-// the URN omits) satisfy the pattern's? Exposed for callers (e.g. CapUrn's
+// ValuesMatch decides one key: does the instance's constraint (ConstraintMissing
+// for a key the URN omits, as TaggedUrn.Constraint gives it) satisfy the pattern's? Exposed for callers (e.g. CapUrn's
 // y-axis matcher) that walk tag sets themselves and need the same per-key
 // decision the tagged-URN matcher makes. Decided by the model
 // (formal.ValuesMatch): every form has one meaning — the set of states the key
 // may be in — and the instance satisfies the pattern when every state it
 // allows, the pattern allows too (tagMatch_iff_allows in ../formal).
-func ValuesMatch(inst, patt *string) bool {
-	ok, err := formal.ValuesMatch(constraintOf(inst), constraintOf(patt))
+func ValuesMatch(inst, patt Constraint) bool {
+	ok, err := formal.ValuesMatch(inst, patt)
 	if err != nil {
 		panic(fmt.Sprintf("tagged-urn: the model could not match one key: %v", err))
 	}
 	return ok
 }
 
-// ValuesMeet decides one key: do the two stored values allow a common state?
+// ValuesMeet decides one key: do the two constraints allow a common state?
 // (formal.ValuesMeet.)
-func ValuesMeet(a, b *string) bool {
-	ok, err := formal.ValuesMeet(constraintOf(a), constraintOf(b))
+func ValuesMeet(a, b Constraint) bool {
+	ok, err := formal.ValuesMeet(a, b)
 	if err != nil {
 		panic(fmt.Sprintf("tagged-urn: the model could not compare one key: %v", err))
 	}
@@ -901,8 +981,8 @@ func ValuesMeet(a, b *string) bool {
 
 // ValuesMatchClosed decides one key of a complete thing against a pattern: an
 // omitted key is absent. (formal.ValuesMatchClosed.)
-func ValuesMatchClosed(inst, patt *string) bool {
-	ok, err := formal.ValuesMatchClosed(constraintOf(inst), constraintOf(patt))
+func ValuesMatchClosed(inst, patt Constraint) bool {
+	ok, err := formal.ValuesMatchClosed(inst, patt)
 	if err != nil {
 		panic(fmt.Sprintf("tagged-urn: the model could not match one key: %v", err))
 	}
@@ -927,35 +1007,6 @@ func (c *TaggedUrn) AcceptsStr(instanceStr string) (bool, error) {
 	return c.Accepts(instance)
 }
 
-// ScoreTagValue returns the per-tag truth-table specificity score.
-// Applied uniformly to any stored tag value — media-URN tags, cap-tag
-// y-axis, any other Tagged URN dimension. Missing keys score 0; the
-// caller filters them out before calling.
-//
-//	"?"          -> 0   (no constraint)
-//	starts "?="  -> 1   (absent or not v)
-//	"*"          -> 2   (must-have-any)
-//	starts "!="  -> 3   (present and not v)
-//	"!"          -> 5   (must-not-have)
-//	otherwise    -> 4   (exact value)
-func ScoreTagValue(value string) int {
-	switch value {
-	case "?":
-		return 0
-	case "*":
-		return 2
-	case "!":
-		return 5
-	}
-	if strings.HasPrefix(value, "?=") {
-		return 1
-	}
-	if strings.HasPrefix(value, "!=") {
-		return 3
-	}
-	return 4
-}
-
 // Specificity returns the specificity score for URN matching: the sum of the
 // per-tag truth-table scores across every tag in the URN, as the model computes
 // it (formal.Specificity). More specific URNs have higher scores and are
@@ -971,38 +1022,29 @@ func (c *TaggedUrn) Specificity() int {
 	return int(score.Int64())
 }
 
-// SpecificityTuple returns specificity as a tuple for tie-breaking.
-// Counts how many tags fall into each non-zero form bucket, ordered
-// from highest score to lowest:
-//
-//	(must_not_have, exact, present_not_value, must_have_any, absent_or_not_value)
-//
-// Compare tuples lexicographically when sum scores are equal.
+// SpecificityTuple counts how many tags fall into each non-zero form, from the
+// highest score to the lowest: (absent, exact, presentNot, present, optionalNot).
 func (c *TaggedUrn) SpecificityTuple() (int, int, int, int, int) {
-	mustNotHave := 0
-	exact := 0
-	presentNotValue := 0
-	mustHaveAny := 0
-	absentOrNotValue := 0
-	for _, value := range c.tags {
-		v := value
-		kind, _ := classifyForm(&v)
-		switch kind {
-		case formMustNotHave:
-			mustNotHave++
-		case formExact:
+	absent, exact, presentNot, present, optionalNot := 0, 0, 0, 0, 0
+	for _, constraint := range c.tags {
+		switch constraint.(type) {
+		case ConstraintAbsent:
+			absent++
+		case ConstraintExact:
 			exact++
-		case formPresentNotValue:
-			presentNotValue++
-		case formMustHaveAny:
-			mustHaveAny++
-		case formAbsentOrNotValue:
-			absentOrNotValue++
-		case formMissing, formNoConstraint:
+		case ConstraintPresentNot:
+			presentNot++
+		case ConstraintPresent:
+			present++
+		case ConstraintOptionalNot:
+			optionalNot++
+		case ConstraintUnconstrained:
 			// 0 points, not counted
+		default:
+			panic(fmt.Sprintf("tagged-urn: stored constraint %#v", constraint))
 		}
 	}
-	return mustNotHave, exact, presentNotValue, mustHaveAny, absentOrNotValue
+	return absent, exact, presentNot, present, optionalNot
 }
 
 // IsMoreSpecificThan checks if this URN is more specific than another
@@ -1080,8 +1122,9 @@ func (c *TaggedUrn) IsComparable(other *TaggedUrn) (bool, error) {
 	return formal.Comparable(c.formal, other.formal)
 }
 
-// Compare returns -1, 0, or 1 using structural tagged-URN ordering:
-// prefix first, then lexicographic order over sorted tag key/value pairs.
+// Compare returns -1, 0, or 1: by prefix, then by canonical text. Two URNs
+// compare equal exactly when they are equal, since every URN prints so that it
+// reads back as itself.
 func (c *TaggedUrn) Compare(other *TaggedUrn) int {
 	if c == nil && other == nil {
 		return 0
@@ -1092,49 +1135,10 @@ func (c *TaggedUrn) Compare(other *TaggedUrn) int {
 	if other == nil {
 		return 1
 	}
-	if c.prefix < other.prefix {
-		return -1
+	if c.prefix != other.prefix {
+		return strings.Compare(c.prefix, other.prefix)
 	}
-	if c.prefix > other.prefix {
-		return 1
-	}
-	keysA := make([]string, 0, len(c.tags))
-	keysB := make([]string, 0, len(other.tags))
-	for k := range c.tags {
-		keysA = append(keysA, k)
-	}
-	for k := range other.tags {
-		keysB = append(keysB, k)
-	}
-	sort.Strings(keysA)
-	sort.Strings(keysB)
-	limit := len(keysA)
-	if len(keysB) < limit {
-		limit = len(keysB)
-	}
-	for i := 0; i < limit; i++ {
-		if keysA[i] < keysB[i] {
-			return -1
-		}
-		if keysA[i] > keysB[i] {
-			return 1
-		}
-		va := c.tags[keysA[i]]
-		vb := other.tags[keysB[i]]
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-	}
-	if len(keysA) < len(keysB) {
-		return -1
-	}
-	if len(keysA) > len(keysB) {
-		return 1
-	}
-	return 0
+	return strings.Compare(c.ToString(), other.ToString())
 }
 
 // DeltaFrom computes the coordinate-space delta from base to c.
@@ -1175,8 +1179,8 @@ func (c *TaggedUrn) DeltaFrom(base *TaggedUrn) (*TaggedUrnCoordinateDelta, error
 		relationKind = TaggedUrnRelationComparable
 	}
 
-	removed := make(map[string]string)
-	added := make(map[string]string)
+	removed := make(map[string]Constraint)
+	added := make(map[string]Constraint)
 	allKeys := make(map[string]struct{}, len(base.tags)+len(c.tags))
 	for key := range base.tags {
 		allKeys[key] = struct{}{}
@@ -1209,7 +1213,9 @@ func (c *TaggedUrn) DeltaFrom(base *TaggedUrn) (*TaggedUrnCoordinateDelta, error
 // ApplyDelta applies a coordinate-space delta to this tagged URN.
 //
 // Keys named in Removed are deleted regardless of current value, then keys
-// named in Added are inserted. Unrelated coordinates are preserved.
+// named in Added are inserted. Unrelated coordinates are preserved. A delta made
+// by DeltaFrom holds only constraints a URN writes; one built by hand is checked
+// as WithTag checks.
 func (c *TaggedUrn) ApplyDelta(delta *TaggedUrnCoordinateDelta) (*TaggedUrn, error) {
 	if delta == nil {
 		return nil, &TaggedUrnError{
@@ -1224,7 +1230,7 @@ func (c *TaggedUrn) ApplyDelta(delta *TaggedUrnCoordinateDelta) (*TaggedUrn, err
 		}
 	}
 
-	nextTags := make(map[string]string, len(c.tags)+len(delta.Added))
+	nextTags := make(map[string]Constraint, len(c.tags)+len(delta.Added))
 	for key, value := range c.tags {
 		nextTags[key] = value
 	}
@@ -1232,7 +1238,14 @@ func (c *TaggedUrn) ApplyDelta(delta *TaggedUrnCoordinateDelta) (*TaggedUrn, err
 		delete(nextTags, key)
 	}
 	for key, value := range delta.Added {
-		nextTags[key] = value
+		k, err := identifier("key", key)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkConstraint(k, value); err != nil {
+			return nil, err
+		}
+		nextTags[k] = value
 	}
 	return assemble(c.prefix, nextTags), nil
 }
@@ -1255,18 +1268,26 @@ func (c *TaggedUrn) IsComparableStr(otherStr string) (bool, error) {
 	return c.IsComparable(other)
 }
 
-// WithWildcardTag returns a new URN with a specific tag set to wildcard
+// WithWildcardTag returns the same URN with key, where it has it, made a marker
+// (ConstraintPresent).
 func (c *TaggedUrn) WithWildcardTag(key string) *TaggedUrn {
-	if _, exists := c.tags[key]; exists {
-		return c.WithTag(key, "*")
+	key = strings.ToLower(key)
+	if _, exists := c.tags[key]; !exists {
+		return c
 	}
-	return c
+	newTags := make(map[string]Constraint, len(c.tags))
+	for k, v := range c.tags {
+		newTags[k] = v
+	}
+	newTags[key] = ConstraintPresent{}
+	return assemble(c.prefix, newTags)
 }
 
 // Subset returns a new URN with only specified tags
 func (c *TaggedUrn) Subset(keys []string) *TaggedUrn {
-	newTags := make(map[string]string)
+	newTags := make(map[string]Constraint)
 	for _, key := range keys {
+		key = strings.ToLower(key)
 		if value, exists := c.tags[key]; exists {
 			newTags[key] = value
 		}
@@ -1291,7 +1312,7 @@ func (c *TaggedUrn) Merge(other *TaggedUrn) (*TaggedUrn, error) {
 		}
 	}
 
-	newTags := make(map[string]string)
+	newTags := make(map[string]Constraint)
 	for k, v := range c.tags {
 		newTags[k] = v
 	}
@@ -1301,71 +1322,46 @@ func (c *TaggedUrn) Merge(other *TaggedUrn) (*TaggedUrn, error) {
 	return assemble(c.prefix, newTags), nil
 }
 
-// ToString returns the canonical string representation of this tagged URN
-// Uses the stored prefix
-// Tags are sorted alphabetically for consistent representation
-// No trailing semicolon in canonical form
-// Values are quoted only when necessary (smart quoting)
-// Special value serialization:
-// - * (must-have-any): serialized as value-less tag (just the key)
-// - ? (unspecified): serialized as key=?
-// - ! (must-not-have): serialized as key=!
+// ToString returns the canonical string representation of this tagged URN: the
+// prefix, `:`, and the tags in key order joined by `;`, with no trailing
+// semicolon. Each constraint is written in its canonical form:
+//
+//	Present          -> k
+//	Unconstrained    -> ?k
+//	Absent           -> !k
+//	OptionalNot v    -> k?=v
+//	PresentNot v     -> k!=v
+//	Exact v          -> k=v
+//
+// A value is quoted only when it must be to read back as itself (needsQuoting):
+// Exact "*" prints k="*".
 func (c *TaggedUrn) ToString() string {
-	if len(c.tags) == 0 {
-		return fmt.Sprintf("%s:", c.prefix)
-	}
-
-	// Sort keys for canonical representation
 	keys := make([]string, 0, len(c.tags))
 	for key := range c.tags {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 
-	// Build tag string in canonical form. Stored values map to
-	// emitted forms as follows:
-	//
-	//   "*"           -> "k"          (bare key, must-have-any)
-	//   "?"           -> "?k"         (prefix qualifier, no constraint)
-	//   "!"           -> "!k"         (prefix qualifier, must-not-have)
-	//   "?=v"         -> "k?=v"       (infix qualifier, absent or not v)
-	//   "!=v"         -> "k!=v"       (infix qualifier, present and not v)
-	//   exact "v"     -> "k=v" / "k=\"v\"" (exact value, with quoting if needed)
 	parts := make([]string, 0, len(keys))
 	for _, key := range keys {
-		value := c.tags[key]
-		switch {
-		case value == "*":
+		switch v := c.tags[key].(type) {
+		case ConstraintPresent:
 			parts = append(parts, key)
-		case value == "?":
-			parts = append(parts, fmt.Sprintf("?%s", key))
-		case value == "!":
-			parts = append(parts, fmt.Sprintf("!%s", key))
-		case strings.HasPrefix(value, "?="):
-			raw := value[2:]
-			if needsQuoting(raw) {
-				parts = append(parts, fmt.Sprintf("%s?=%s", key, quoteValue(raw)))
-			} else {
-				parts = append(parts, fmt.Sprintf("%s?=%s", key, raw))
-			}
-		case strings.HasPrefix(value, "!="):
-			raw := value[2:]
-			if needsQuoting(raw) {
-				parts = append(parts, fmt.Sprintf("%s!=%s", key, quoteValue(raw)))
-			} else {
-				parts = append(parts, fmt.Sprintf("%s!=%s", key, raw))
-			}
+		case ConstraintUnconstrained:
+			parts = append(parts, "?"+key)
+		case ConstraintAbsent:
+			parts = append(parts, "!"+key)
+		case ConstraintOptionalNot:
+			parts = append(parts, key+"?="+writeValue(v.Value))
+		case ConstraintPresentNot:
+			parts = append(parts, key+"!="+writeValue(v.Value))
+		case ConstraintExact:
+			parts = append(parts, key+"="+writeValue(v.Value))
 		default:
-			if needsQuoting(value) {
-				parts = append(parts, fmt.Sprintf("%s=%s", key, quoteValue(value)))
-			} else {
-				parts = append(parts, fmt.Sprintf("%s=%s", key, value))
-			}
+			panic(fmt.Sprintf("tagged-urn: stored constraint %#v", v))
 		}
 	}
-
-	tagsStr := strings.Join(parts, ";")
-	return fmt.Sprintf("%s:%s", c.prefix, tagsStr)
+	return c.prefix + ":" + strings.Join(parts, ";")
 }
 
 // String implements the Stringer interface
@@ -1500,50 +1496,61 @@ func (m *UrnMatcher) AreCompatible(urns1, urns2 []*TaggedUrn) (bool, error) {
 	return false, nil
 }
 
-// TaggedUrnBuilder provides a fluent builder interface for creating tagged URNs
+// TaggedUrnBuilder provides a fluent builder interface for creating tagged URNs.
+// The first error (a prefix or key that is no identifier, a constraint a URN
+// cannot write, a key given twice) is kept and returned by Build.
 type TaggedUrnBuilder struct {
 	prefix string
-	tags   map[string]string
+	tags   map[string]Constraint
 	err    error
 }
 
-// NewTaggedUrnBuilder creates a new builder with a specified prefix (required)
+// NewTaggedUrnBuilder creates a new builder with a specified prefix (required),
+// which must be an identifier and is lowered.
 func NewTaggedUrnBuilder(prefix string) *TaggedUrnBuilder {
+	p, err := identifier("prefix", prefix)
 	return &TaggedUrnBuilder{
-		prefix: strings.ToLower(prefix),
-		tags:   make(map[string]string),
+		prefix: p,
+		tags:   make(map[string]Constraint),
+		err:    err,
 	}
 }
 
-// Tag adds or updates a tag
-// Key is normalized to lowercase; value is preserved as-is
-// Tracks error if value is empty (use Marker for wildcard)
-// Error is returned at Build() time
-func (b *TaggedUrnBuilder) Tag(key, value string) *TaggedUrnBuilder {
+// Constraint adds a tag of any form.
+func (b *TaggedUrnBuilder) Constraint(key string, constraint Constraint) *TaggedUrnBuilder {
 	if b.err != nil {
-		return b // Already have an error, don't process further
-	}
-	if value == "" {
-		b.err = &TaggedUrnError{
-			Code:    ErrorEmptyTag,
-			Message: fmt.Sprintf("empty value for key '%s' (use '*' for wildcard)", key),
-		}
 		return b
 	}
-	b.tags[strings.ToLower(key)] = value
+	k, err := identifier("key", key)
+	if err != nil {
+		b.err = err
+		return b
+	}
+	if err := checkConstraint(k, constraint); err != nil {
+		b.err = err
+		return b
+	}
+	if _, exists := b.tags[k]; exists {
+		b.err = &TaggedUrnError{Code: ErrorDuplicateKey, Message: fmt.Sprintf("duplicate tag key: %s", k)}
+		return b
+	}
+	b.tags[k] = constraint
 	return b
 }
 
-// Marker adds a tag with wildcard value (*)
-// Key is normalized to lowercase
+// Tag adds the exact value value for key (`key=value`), taken literally:
+// Tag("x", "*") is the exact value `*`, not the marker.
+func (b *TaggedUrnBuilder) Tag(key, value string) *TaggedUrnBuilder {
+	return b.Constraint(key, ConstraintExact{Value: value})
+}
+
+// Marker adds key as a marker (ConstraintPresent, written as just the key).
 func (b *TaggedUrnBuilder) Marker(key string) *TaggedUrnBuilder {
-	b.tags[strings.ToLower(key)] = "*"
-	return b
+	return b.Constraint(key, ConstraintPresent{})
 }
 
 // Build creates the final TaggedUrn
 func (b *TaggedUrnBuilder) Build() (*TaggedUrn, error) {
-	// Check for errors accumulated during building
 	if b.err != nil {
 		return nil, b.err
 	}
@@ -1559,6 +1566,9 @@ func (b *TaggedUrnBuilder) Build() (*TaggedUrn, error) {
 }
 
 // BuildAllowEmpty creates the final TaggedUrn, allowing empty tags
-func (b *TaggedUrnBuilder) BuildAllowEmpty() *TaggedUrn {
-	return assemble(b.prefix, b.tags)
+func (b *TaggedUrnBuilder) BuildAllowEmpty() (*TaggedUrn, error) {
+	if b.err != nil {
+		return nil, b.err
+	}
+	return assemble(b.prefix, b.tags), nil
 }
