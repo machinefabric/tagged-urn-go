@@ -2,30 +2,35 @@ package taggedurn
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func exact(value string) Constraint {
+	return ConstraintExact{Value: value}
+}
+
 // TEST0001: Tagged urn creation
 func Test0001_TaggedUrnCreation(t *testing.T) {
-	taggedUrn, err := NewTaggedUrnFromString("cap:transform;format=json;data_processing")
+	taggedUrn, err := NewTaggedUrnFromString("cap:transform;format=json;data-processing")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, taggedUrn)
 	assert.Equal(t, "cap", taggedUrn.GetPrefix())
 
-	// data_processing is a valueless tag, stored as * (must-have-any)
-	dataProcessing, exists := taggedUrn.GetTag("data_processing")
+	// data-processing is a valueless tag, stored as present (must-have-any)
+	dataProcessing, exists := taggedUrn.GetTag("data-processing")
 	assert.True(t, exists)
-	assert.Equal(t, "*", dataProcessing)
+	assert.Equal(t, ConstraintPresent{}, dataProcessing)
 
 	assert.True(t, taggedUrn.HasMarkerTag("transform"))
 
 	format, exists := taggedUrn.GetTag("format")
 	assert.True(t, exists)
-	assert.Equal(t, "json", format)
+	assert.Equal(t, exact("json"), format)
 }
 
 // TEST0002: Custom prefix
@@ -160,7 +165,7 @@ func Test0010_ValuelessTagParsing(t *testing.T) {
 	assert.NoError(t, err)
 	value, exists := taggedUrn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, "*", value)
+	assert.Equal(t, ConstraintPresent{}, value)
 	assert.Equal(t, "cap:optimize", taggedUrn.ToString())
 }
 
@@ -334,15 +339,15 @@ func Test0016_ConvenienceMethods(t *testing.T) {
 
 	target, exists := urn.GetTag("target")
 	assert.True(t, exists)
-	assert.Equal(t, "thumbnail", target)
+	assert.Equal(t, exact("thumbnail"), target)
 
 	format, exists := urn.GetTag("ext")
 	assert.True(t, exists)
-	assert.Equal(t, "pdf", format)
+	assert.Equal(t, exact("pdf"), format)
 
 	output, exists := urn.GetTag("output")
 	assert.True(t, exists)
-	assert.Equal(t, "binary", output)
+	assert.Equal(t, exact("binary"), output)
 }
 
 // TEST0017: Builder
@@ -359,7 +364,7 @@ func Test0017_Builder(t *testing.T) {
 
 	output, exists := urn.GetTag("output")
 	assert.True(t, exists)
-	assert.Equal(t, "binary", output)
+	assert.Equal(t, exact("binary"), output)
 }
 
 // TEST0018: With tag
@@ -367,7 +372,8 @@ func Test0018_WithTag(t *testing.T) {
 	original, err := NewTaggedUrnFromString("cap:generate")
 	require.NoError(t, err)
 
-	modified := original.WithTag("ext", "pdf")
+	modified, err := original.WithTag("ext", exact("pdf"))
+	require.NoError(t, err)
 
 	assert.Equal(t, "cap:ext=pdf;generate", modified.ToString())
 
@@ -563,17 +569,17 @@ func Test0030_UnquotedValuesLowercased(t *testing.T) {
 
 	ext, exists := urn.GetTag("ext")
 	assert.True(t, exists)
-	assert.Equal(t, "pdf", ext)
+	assert.Equal(t, exact("pdf"), ext)
 
 	target, exists := urn.GetTag("target")
 	assert.True(t, exists)
-	assert.Equal(t, "thumbnail", target)
+	assert.Equal(t, exact("thumbnail"), target)
 
 	// Key lookup is case-insensitive: uppercase variants of `ext`
 	// resolve to the same keyed tag.
 	extUpper, exists := urn.GetTag("EXT")
 	assert.True(t, exists)
-	assert.Equal(t, "pdf", extUpper)
+	assert.Equal(t, exact("pdf"), extUpper)
 
 	// Tag order in the source string does not affect canonical form.
 	urn2, err := NewTaggedUrnFromString("cap:target=thumbnail;ext=pdf;generate;")
@@ -589,14 +595,14 @@ func Test0031_QuotedValuesPreserveCase(t *testing.T) {
 	require.NoError(t, err)
 	value, exists := urn.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "Value With Spaces", value)
+	assert.Equal(t, exact("Value With Spaces"), value)
 
 	// Key is still lowercase
 	urn2, err := NewTaggedUrnFromString(`cap:KEY="Value With Spaces"`)
 	require.NoError(t, err)
 	value2, exists := urn2.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "Value With Spaces", value2)
+	assert.Equal(t, exact("Value With Spaces"), value2)
 
 	// Unquoted vs quoted case difference
 	unquoted, err := NewTaggedUrnFromString("cap:key=UPPERCASE")
@@ -606,9 +612,9 @@ func Test0031_QuotedValuesPreserveCase(t *testing.T) {
 
 	unquotedVal, _ := unquoted.GetTag("key")
 	quotedVal, _ := quoted.GetTag("key")
-	assert.Equal(t, "uppercase", unquotedVal) // lowercase
-	assert.Equal(t, "UPPERCASE", quotedVal)   // preserved
-	assert.False(t, unquoted.Equals(quoted))  // NOT equal
+	assert.Equal(t, exact("uppercase"), unquotedVal) // lowercase
+	assert.Equal(t, exact("UPPERCASE"), quotedVal)   // preserved
+	assert.False(t, unquoted.Equals(quoted))         // NOT equal
 }
 
 // TEST0032: Quoted value special chars
@@ -618,21 +624,21 @@ func Test0032_QuotedValueSpecialChars(t *testing.T) {
 	require.NoError(t, err)
 	value, exists := urn.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "value;with;semicolons", value)
+	assert.Equal(t, exact("value;with;semicolons"), value)
 
 	// Equals in quoted values
 	urn2, err := NewTaggedUrnFromString(`cap:key="value=with=equals"`)
 	require.NoError(t, err)
 	value2, exists := urn2.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "value=with=equals", value2)
+	assert.Equal(t, exact("value=with=equals"), value2)
 
 	// Spaces in quoted values
 	urn3, err := NewTaggedUrnFromString(`cap:key="hello world"`)
 	require.NoError(t, err)
 	value3, exists := urn3.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "hello world", value3)
+	assert.Equal(t, exact("hello world"), value3)
 }
 
 // TEST0033: Quoted value escape sequences
@@ -642,21 +648,21 @@ func Test0033_QuotedValueEscapeSequences(t *testing.T) {
 	require.NoError(t, err)
 	value, exists := urn.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, `value"quoted"`, value)
+	assert.Equal(t, exact(`value"quoted"`), value)
 
 	// Escaped backslashes
 	urn2, err := NewTaggedUrnFromString(`cap:key="path\\file"`)
 	require.NoError(t, err)
 	value2, exists := urn2.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, `path\file`, value2)
+	assert.Equal(t, exact(`path\file`), value2)
 
 	// Mixed escapes
 	urn3, err := NewTaggedUrnFromString(`cap:key="say \"hello\\world\""`)
 	require.NoError(t, err)
 	value3, exists := urn3.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, `say "hello\world"`, value3)
+	assert.Equal(t, exact(`say "hello\world"`), value3)
 }
 
 // TEST0034: Mixed quoted unquoted
@@ -666,11 +672,11 @@ func Test0034_MixedQuotedUnquoted(t *testing.T) {
 
 	a, exists := urn.GetTag("a")
 	assert.True(t, exists)
-	assert.Equal(t, "Quoted", a)
+	assert.Equal(t, exact("Quoted"), a)
 
 	b, exists := urn.GetTag("b")
 	assert.True(t, exists)
-	assert.Equal(t, "simple", b)
+	assert.Equal(t, exact("simple"), b)
 }
 
 // TEST0035: Unterminated quote error
@@ -756,7 +762,7 @@ func Test0039_RoundTripQuoted(t *testing.T) {
 	assert.True(t, urn.Equals(reparsed))
 	value, exists := reparsed.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "Value With Spaces", value)
+	assert.Equal(t, exact("Value With Spaces"), value)
 }
 
 // TEST0040: Round trip escapes
@@ -766,7 +772,7 @@ func Test0040_RoundTripEscapes(t *testing.T) {
 	require.NoError(t, err)
 	value, exists := urn.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, `value"with\escapes`, value)
+	assert.Equal(t, exact(`value"with\escapes`), value)
 	serialized := urn.ToString()
 	reparsed, err := NewTaggedUrnFromString(serialized)
 	require.NoError(t, err)
@@ -807,7 +813,7 @@ func Test0042_BuilderPreservesCase(t *testing.T) {
 	// Key is lowercase
 	value, exists := urn.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "ValueWithCase", value)
+	assert.Equal(t, exact("ValueWithCase"), value)
 
 	// Value case preserved, so needs quoting
 	assert.Equal(t, `cap:key="ValueWithCase"`, urn.ToString())
@@ -832,12 +838,14 @@ func Test0043_HasTagCaseSensitive(t *testing.T) {
 
 // TEST0044: With tag preserves value
 func Test0044_WithTagPreservesValue(t *testing.T) {
-	urn := NewTaggedUrnFromTags("cap", map[string]string{})
-	modified := urn.WithTag("key", "ValueWithCase")
+	urn, err := NewTaggedUrnFromTags("cap", map[string]Constraint{})
+	require.NoError(t, err)
+	modified, err := urn.WithTag("key", exact("ValueWithCase"))
+	require.NoError(t, err)
 
 	value, exists := modified.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "ValueWithCase", value)
+	assert.Equal(t, exact("ValueWithCase"), value)
 }
 
 // TEST0045: Semantic equivalence
@@ -909,11 +917,20 @@ func Test0048_ExtendedCharacterSupport(t *testing.T) {
 
 	url, exists := urn.GetTag("url")
 	assert.True(t, exists)
-	assert.Equal(t, "https://example_org/api", url)
+	assert.Equal(t, exact("https://example_org/api"), url)
 
 	path, exists := urn.GetTag("path")
 	assert.True(t, exists)
-	assert.Equal(t, "/some/file", path)
+	assert.Equal(t, exact("/some/file"), path)
+
+	// `=` still needs quotes; `,` stands bare
+	listed, err := NewTaggedUrnFromString(`cap:list=a,b;url="https://example.org/a?b=c"`)
+	require.NoError(t, err)
+	assert.Equal(t, exact("https://example.org/a?b=c"), listed.Constraint("url"))
+	assert.Equal(t, exact("a,b"), listed.Constraint("list"))
+	assert.Equal(t, `cap:list=a,b;url="https://example.org/a?b=c"`, listed.ToString())
+	_, err = NewTaggedUrnFromString("cap:url=https://example.org/a?b=c")
+	assert.Error(t, err)
 }
 
 // TEST0049: Wildcard restrictions
@@ -933,7 +950,7 @@ func Test0049_WildcardRestrictions(t *testing.T) {
 
 	value, exists := validValue.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "*", value)
+	assert.Equal(t, ConstraintPresent{}, value)
 }
 
 // TEST0050: Duplicate key rejection
@@ -949,22 +966,20 @@ func Test0050_DuplicateKeyRejection(t *testing.T) {
 
 // TEST0051: Numeric key restriction
 func Test0051_NumericKeyRestriction(t *testing.T) {
-	// Pure numeric keys should be rejected
-	numericKey, err := NewTaggedUrnFromString("cap:123=value")
-	assert.Error(t, err)
-	assert.Nil(t, numericKey)
-	urnError, ok := err.(*TaggedUrnError)
-	assert.True(t, ok)
-	assert.Equal(t, ErrorNumericKey, urnError.Code)
+	// A key begins with a letter, so neither a numeric key nor one that starts
+	// with a digit is an identifier
+	for _, refused := range []string{"cap:123=value", "cap:123key=value"} {
+		urn, err := NewTaggedUrnFromString(refused)
+		assert.Nil(t, urn)
+		urnError, ok := err.(*TaggedUrnError)
+		require.True(t, ok, refused)
+		assert.Equal(t, ErrorInvalidCharacter, urnError.Code, refused)
+	}
 
-	// Mixed alphanumeric keys should be allowed
+	// Digits after the first letter are allowed
 	mixedKey1, err := NewTaggedUrnFromString("cap:key123=value")
 	assert.NoError(t, err)
 	assert.NotNil(t, mixedKey1)
-
-	mixedKey2, err := NewTaggedUrnFromString("cap:123key=value")
-	assert.NoError(t, err)
-	assert.NotNil(t, mixedKey2)
 
 	// Pure numeric values should be allowed
 	numericValue, err := NewTaggedUrnFromString("cap:key=123")
@@ -973,7 +988,7 @@ func Test0051_NumericKeyRestriction(t *testing.T) {
 
 	value, exists := numericValue.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, "123", value)
+	assert.Equal(t, exact("123"), value)
 }
 
 // TEST0052: Empty value error
@@ -1218,7 +1233,7 @@ func Test0063_ValuelessTagParsingSingle(t *testing.T) {
 
 	value, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, "*", value)
+	assert.Equal(t, ConstraintPresent{}, value)
 	// Serializes as value-less (no =*)
 	assert.Equal(t, "cap:optimize", urn.ToString())
 }
@@ -1231,15 +1246,15 @@ func Test0064_ValuelessTagParsingMultiple(t *testing.T) {
 
 	fast, exists := urn.GetTag("fast")
 	assert.True(t, exists)
-	assert.Equal(t, "*", fast)
+	assert.Equal(t, ConstraintPresent{}, fast)
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, "*", optimize)
+	assert.Equal(t, ConstraintPresent{}, optimize)
 
 	secure, exists := urn.GetTag("secure")
 	assert.True(t, exists)
-	assert.Equal(t, "*", secure)
+	assert.Equal(t, ConstraintPresent{}, secure)
 
 	// Serializes alphabetically as value-less
 	assert.Equal(t, "cap:fast;optimize;secure", urn.ToString())
@@ -1255,15 +1270,15 @@ func Test0065_ValuelessTagMixedWithValued(t *testing.T) {
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, "*", optimize)
+	assert.Equal(t, ConstraintPresent{}, optimize)
 
 	ext, exists := urn.GetTag("ext")
 	assert.True(t, exists)
-	assert.Equal(t, "pdf", ext)
+	assert.Equal(t, exact("pdf"), ext)
 
 	secure, exists := urn.GetTag("secure")
 	assert.True(t, exists)
-	assert.Equal(t, "*", secure)
+	assert.Equal(t, ConstraintPresent{}, secure)
 
 	// Serializes alphabetically
 	assert.Equal(t, "cap:ext=pdf;generate;optimize;secure", urn.ToString())
@@ -1279,7 +1294,7 @@ func Test0066_ValuelessTagAtEnd(t *testing.T) {
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, "*", optimize)
+	assert.Equal(t, ConstraintPresent{}, optimize)
 
 	assert.Equal(t, "cap:generate;optimize", urn.ToString())
 }
@@ -1400,15 +1415,15 @@ func Test0072_ValuelessTagCaseNormalization(t *testing.T) {
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, "*", optimize)
+	assert.Equal(t, ConstraintPresent{}, optimize)
 
 	fast, exists := urn.GetTag("fast")
 	assert.True(t, exists)
-	assert.Equal(t, "*", fast)
+	assert.Equal(t, ConstraintPresent{}, fast)
 
 	secure, exists := urn.GetTag("secure")
 	assert.True(t, exists)
-	assert.Equal(t, "*", secure)
+	assert.Equal(t, ConstraintPresent{}, secure)
 
 	assert.Equal(t, "cap:fast;optimize;secure", urn.ToString())
 }
@@ -1456,14 +1471,14 @@ func Test0074_ValuelessTagCompatibility(t *testing.T) {
 
 // TEST0075: Valueless numeric key still rejected
 func Test0075_ValuelessNumericKeyStillRejected(t *testing.T) {
-	// Purely numeric keys are still rejected for value-less tags
-	urn, err := NewTaggedUrnFromString("cap:123")
-	assert.Nil(t, urn)
-	assert.Error(t, err)
-
-	urn2, err := NewTaggedUrnFromString("cap:generate;456")
-	assert.Nil(t, urn2)
-	assert.Error(t, err)
+	// A value-less tag's key is an identifier too, so it begins with a letter
+	for _, refused := range []string{"cap:123", "cap:generate;456"} {
+		urn, err := NewTaggedUrnFromString(refused)
+		assert.Nil(t, urn)
+		urnError, ok := err.(*TaggedUrnError)
+		require.True(t, ok, refused)
+		assert.Equal(t, ErrorInvalidCharacter, urnError.Code, refused)
+	}
 }
 
 // TEST0076: Whitespace in input rejected
@@ -1519,9 +1534,9 @@ func Test0077_UnspecifiedQuestionMarkParsing(t *testing.T) {
 
 	value, exists := urn.GetTag("ext")
 	assert.True(t, exists)
-	assert.Equal(t, "?", value)
-	// All three input aliases (?x, x?, x=?) parse to stored value
-	// "?" and serialize as the canonical prefix form `?x`.
+	assert.Equal(t, ConstraintUnconstrained{}, value)
+	// All three input aliases (?x, x?, x=?) parse to the constraint
+	// unconstrained and serialize as the canonical prefix form `?x`.
 	assert.Equal(t, "cap:?ext", urn.ToString())
 }
 
@@ -1532,9 +1547,9 @@ func Test0078_MustNotHaveExclamationParsing(t *testing.T) {
 
 	value, exists := urn.GetTag("ext")
 	assert.True(t, exists)
-	assert.Equal(t, "!", value)
-	// All three input aliases (!x, x!, x=!) parse to stored value
-	// "!" and serialize as the canonical prefix form `!x`.
+	assert.Equal(t, ConstraintAbsent{}, value)
+	// All three input aliases (!x, x!, x=!) parse to the constraint
+	// absent and serialize as the canonical prefix form `!x`.
 	assert.Equal(t, "cap:!ext", urn.ToString())
 }
 
@@ -2034,13 +2049,13 @@ func Test0587_BuilderFluentAPI(t *testing.T) {
 	assert.True(t, urn.HasMarkerTag("generate"))
 	val, exists := urn.GetTag("target")
 	assert.True(t, exists)
-	assert.Equal(t, "thumbnail", val)
+	assert.Equal(t, exact("thumbnail"), val)
 	val, exists = urn.GetTag("format")
 	assert.True(t, exists)
-	assert.Equal(t, "pdf", val)
+	assert.Equal(t, exact("pdf"), val)
 	val, exists = urn.GetTag("output")
 	assert.True(t, exists)
-	assert.Equal(t, "binary", val)
+	assert.Equal(t, exact("binary"), val)
 }
 
 // TEST0588: Builder with custom tags
@@ -2053,11 +2068,11 @@ func Test0588_BuilderCustomTags(t *testing.T) {
 	require.NoError(t, err)
 
 	val, _ := urn.GetTag("engine")
-	assert.Equal(t, "v2", val)
+	assert.Equal(t, exact("v2"), val)
 	val, _ = urn.GetTag("quality")
-	assert.Equal(t, "high", val)
+	assert.Equal(t, exact("high"), val)
 	val, _ = urn.GetTag("op")
-	assert.Equal(t, "compress", val)
+	assert.Equal(t, exact("compress"), val)
 }
 
 // TEST0589: Builder tag overrides
@@ -2069,9 +2084,9 @@ func Test0589_BuilderTagOverrides(t *testing.T) {
 	require.NoError(t, err)
 
 	val, _ := urn.GetTag("op")
-	assert.Equal(t, "convert", val)
+	assert.Equal(t, exact("convert"), val)
 	val, _ = urn.GetTag("format")
-	assert.Equal(t, "jpg", val)
+	assert.Equal(t, exact("jpg"), val)
 }
 
 // TEST0590: Builder empty build returns error
@@ -2087,7 +2102,7 @@ func Test0591_BuilderSingleTag(t *testing.T) {
 
 	assert.Equal(t, "cap:type=utility", urn.ToString())
 	val, _ := urn.GetTag("type")
-	assert.Equal(t, "utility", val)
+	assert.Equal(t, exact("utility"), val)
 	// Six-form ladder: exact value = 4 points.
 	assert.Equal(t, 4, urn.Specificity())
 }
@@ -2106,14 +2121,14 @@ func Test0592_BuilderComplex(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	assert.Equal(t, "media", urn.AllTags()["type"])
+	assert.Equal(t, exact("media"), urn.AllTags()["type"])
 	assert.True(t, urn.HasMarkerTag("transcode"))
-	assert.Equal(t, "video", urn.AllTags()["target"])
-	assert.Equal(t, "mp4", urn.AllTags()["format"])
-	assert.Equal(t, "h264", urn.AllTags()["codec"])
-	assert.Equal(t, "1080p", urn.AllTags()["quality"])
-	assert.Equal(t, "30fps", urn.AllTags()["framerate"])
-	assert.Equal(t, "binary", urn.AllTags()["output"])
+	assert.Equal(t, exact("video"), urn.AllTags()["target"])
+	assert.Equal(t, exact("mp4"), urn.AllTags()["format"])
+	assert.Equal(t, exact("h264"), urn.AllTags()["codec"])
+	assert.Equal(t, exact("1080p"), urn.AllTags()["quality"])
+	assert.Equal(t, exact("30fps"), urn.AllTags()["framerate"])
+	assert.Equal(t, exact("binary"), urn.AllTags()["output"])
 	// Six-form ladder: 7 exact tags × 4 + 1 marker × 2 = 28 + 2 = 30.
 	assert.Equal(t, 30, urn.Specificity())
 }
@@ -2131,9 +2146,9 @@ func Test0593_BuilderWildcards(t *testing.T) {
 	// Six-form ladder: 3 markers × 2 = 6.
 	assert.Equal(t, 6, urn.Specificity())
 	val, _ := urn.GetTag("ext")
-	assert.Equal(t, "*", val)
+	assert.Equal(t, ConstraintPresent{}, val)
 	val, _ = urn.GetTag("quality")
-	assert.Equal(t, "*", val)
+	assert.Equal(t, ConstraintPresent{}, val)
 }
 
 // TEST0594: Builder with custom prefix
@@ -2211,4 +2226,157 @@ func Test0392_LeastUpperBound(t *testing.T) {
 	capError, ok := err.(*TaggedUrnError)
 	require.True(t, ok)
 	assert.Equal(t, ErrorPrefixMismatch, capError.Code)
+}
+
+func mustParse(t *testing.T, s string) *TaggedUrn {
+	t.Helper()
+	urn, err := NewTaggedUrnFromString(s)
+	require.NoError(t, err, s)
+	return urn
+}
+
+func errorCode(t *testing.T, err error) int {
+	t.Helper()
+	urnError, ok := err.(*TaggedUrnError)
+	require.True(t, ok, "expected a TaggedUrnError, got %v", err)
+	return urnError.Code
+}
+
+// TEST6752: An unquoted value that begins with ? or ! is that qualifier (x=?v is x?=v, x=!v is x!=v); a quoted one is literal
+func Test6752_QualifierValueAlias(t *testing.T) {
+	assert.True(t, mustParse(t, "t:x=?v").Equals(mustParse(t, "t:x?=v")))
+	assert.Equal(t, "t:x?=v", mustParse(t, "t:x=?v").ToString())
+	assert.Equal(t, ConstraintOptionalNot{Value: "v"}, mustParse(t, "t:x=?v").Constraint("x"))
+	assert.True(t, mustParse(t, "t:x=!v").Equals(mustParse(t, "t:x!=v")))
+	assert.Equal(t, "t:x!=v", mustParse(t, "t:x=!v").ToString())
+	assert.Equal(t, ConstraintPresentNot{Value: "v"}, mustParse(t, "t:x=!v").Constraint("x"))
+
+	for _, refused := range []string{"t:x=?*", "t:x=!?", "t:x=??", "t:x=?!", "t:x=!*", "t:?x=?v", "t:x!=!v"} {
+		_, err := NewTaggedUrnFromString(refused)
+		assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err), refused)
+	}
+
+	assert.Equal(t, "t:?x", mustParse(t, "t:x=?").ToString())
+	assert.Equal(t, "t:!x", mustParse(t, "t:x=!").ToString())
+
+	literal := mustParse(t, `t:x="?v"`)
+	assert.Equal(t, exact("?v"), literal.Constraint("x"))
+	assert.Equal(t, `t:x="?v"`, literal.ToString())
+	assert.True(t, mustParse(t, literal.ToString()).Equals(literal))
+	assert.False(t, literal.Equals(mustParse(t, "t:x?=v")))
+}
+
+// TEST6753: The prefix and every key are identifiers (an ASCII letter, then ASCII letters, digits and -), lowered, in parsing and in every constructor
+func Test6753_PrefixAndKeyAreIdentifiers(t *testing.T) {
+	for _, refused := range []string{
+		"t:a_b=1", "t:a.b=1", "t:a/b=1", "t:a:b=1", "t:1a=1", "t:é=1", "my_app:x", "1t:x", "é:x",
+	} {
+		_, err := NewTaggedUrnFromString(refused)
+		assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err), refused)
+	}
+
+	urn := mustParse(t, "T:A-b1=v")
+	assert.Equal(t, "t", urn.GetPrefix())
+	assert.Equal(t, exact("v"), urn.Constraint("a-b1"))
+
+	_, err := NewTaggedUrnFromTags("t", map[string]Constraint{"a_b": exact("v")})
+	assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err))
+	_, err = Empty("my_app")
+	assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err))
+	_, err = NewTaggedUrnBuilder("1t").Tag("x", "v").Build()
+	assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err))
+	_, err = NewTaggedUrnBuilder("t").Tag("a.b", "v").Build()
+	assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err))
+	empty, err := Empty("t")
+	require.NoError(t, err)
+	_, err = empty.WithTag("a/b", exact("v"))
+	assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err))
+	_, err = LeastUpperBound("a:b", nil)
+	assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err))
+
+	built, err := NewTaggedUrnBuilder("T").Tag("Key-2", "v").Build()
+	require.NoError(t, err)
+	assert.True(t, built.Equals(mustParse(t, "t:key-2=v")))
+}
+
+// quotedLiteral is value written as a quoted literal: `"`, with `"` and `\` escaped.
+func quotedLiteral(value string) string {
+	var b strings.Builder
+	b.WriteRune('"')
+	for _, c := range value {
+		if c == '"' || c == '\\' {
+			b.WriteRune('\\')
+		}
+		b.WriteRune(c)
+	}
+	b.WriteRune('"')
+	return b.String()
+}
+
+// TEST6754: Every value a URN holds prints so that it reads back as itself
+func Test6754_EveryValueReadsBack(t *testing.T) {
+	for _, value := range []string{
+		"a,b", "a(b)", "x@y#z", "a\tb", "Été", "a b", "a;b", "a=b", "q\"q", "b\\s", "plain", "?v",
+		"!v", "*", "?", "!", "*v",
+	} {
+		urn := mustParse(t, "t:k="+quotedLiteral(value))
+		assert.Equal(t, exact(value), urn.Constraint("k"), "stored value of %q", value)
+		printed := urn.ToString()
+		reparsed, err := NewTaggedUrnFromString(printed)
+		require.NoError(t, err, "%q printed as %s does not read back", value, printed)
+		assert.True(t, reparsed.Equals(urn), "%q printed as %s", value, printed)
+		assert.Equal(t, exact(value), reparsed.Constraint("k"))
+	}
+}
+
+// TEST6755: An unquoted value takes any character but ; = " \ and whitespace
+func Test6755_UnquotedValueTakesAnyNonSeparator(t *testing.T) {
+	urn := mustParse(t, "t:k=a,b(c)")
+	assert.Equal(t, exact("a,b(c)"), urn.Constraint("k"))
+
+	symbols := mustParse(t, "t:k=x@y#z+%&~'[]{}<>^$|")
+	assert.Equal(t, exact("x@y#z+%&~'[]{}<>^$|"), symbols.Constraint("k"))
+
+	assert.Equal(t, exact("a,b"), mustParse(t, "t:k=A,B").Constraint("k"))
+
+	_, err := NewTaggedUrnFromString("t:k=a\tb")
+	assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err))
+
+	for _, u := range []*TaggedUrn{urn, symbols} {
+		assert.True(t, mustParse(t, u.ToString()).Equals(u))
+	}
+}
+
+// TEST6756: A quoted value is the literal value: a quoted *, ? or ! is never a sigil, and a quoted ?=v is never a qualifier
+func Test6756_QuotedValueIsLiteral(t *testing.T) {
+	star := mustParse(t, `t:x="*"`)
+	assert.Equal(t, exact("*"), star.Constraint("x"))
+	assert.False(t, star.Equals(mustParse(t, "t:x")))
+	assert.Equal(t, `t:x="*"`, star.ToString())
+	assert.True(t, mustParse(t, star.ToString()).Equals(star))
+	conforms, err := star.ConformsTo(mustParse(t, "t:x"))
+	require.NoError(t, err)
+	assert.True(t, conforms)
+	conforms, err = mustParse(t, "t:x").ConformsTo(star)
+	require.NoError(t, err)
+	assert.False(t, conforms)
+
+	question := mustParse(t, `t:x="?"`)
+	assert.Equal(t, exact("?"), question.Constraint("x"))
+	equivalent, err := question.IsEquivalent(mustParse(t, "t:?x"))
+	require.NoError(t, err)
+	assert.False(t, equivalent)
+
+	assert.Equal(t, exact("!"), mustParse(t, `t:x="!"`).Constraint("x"))
+	assert.Equal(t, exact("?=v"), mustParse(t, `t:x="?=v"`).Constraint("x"))
+
+	optional := mustParse(t, `t:?x="*"`)
+	assert.Equal(t, ConstraintOptionalNot{Value: "*"}, optional.Constraint("x"))
+	assert.Equal(t, `t:x?="*"`, optional.ToString())
+	assert.True(t, mustParse(t, optional.ToString()).Equals(optional))
+
+	// The builder's exact value is literal too
+	built, err := NewTaggedUrnBuilder("t").Tag("x", "*").Build()
+	require.NoError(t, err)
+	assert.True(t, built.Equals(star))
 }

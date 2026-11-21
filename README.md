@@ -5,13 +5,15 @@ Go implementation of Tagged URN with strict validation, pattern matching, and gr
 ## Features
 
 - **Strict Rule Enforcement** - Follows exact same rules as Rust, JavaScript, and Objective-C implementations
-- **Case Insensitive** - All input normalized to lowercase (except quoted values)
+- **Six Tag Forms** - exact `k=v`, present `k`, absent `!k`, unconstrained `?k`, `k?=v` (absent or not v), `k!=v` (present and not v)
+- **Typed Tags** - Each tag is stored as the constraint it writes (`taggedurn.Constraint`: `ConstraintExact`, `ConstraintPresent`, …)
+- **Identifiers** - The prefix and every key are an ASCII letter followed by ASCII letters, digits and `-`
+- **Case Insensitive** - The prefix, keys and unquoted values are lowered; quoted values keep their case
+- **Literal Quoting** - A quoted value is always the literal value: `x="*"` is the exact value `*`
 - **Tag Order Independent** - Canonical alphabetical sorting
-- **Special Pattern Values** - `*` (must-have-any), `?` (unspecified), `!` (must-not-have)
-- **Value-less Tags** - Tags without values (`tag`) mean must-have-any (`tag=*`)
-- **Graded Specificity** - Exact values score higher than wildcards
+- **Graded Specificity** - `?k` 0, `k?=v` 1, `k` 2, `k!=v` 3, `k=v` 4, `!k` 5
 - **JSON Serialization** - Full JSON marshal/unmarshal support
-- **Zero Dependencies** - Only standard library (testify for tests only)
+- **Proved Relations** - Refinement, equivalence and specificity are code generated from the proved model
 
 ## Installation
 
@@ -41,10 +43,15 @@ func main() {
     fmt.Println("Canonical:", urn.ToString())                            // "cap:ext=pdf;generate"
 
     // Build a URN
-    built := taggedurn.NewTaggedUrnBuilder("cap").
+    built, err := taggedurn.NewTaggedUrnBuilder("cap").
         Marker("extract").
         Tag("format", "pdf").
         Build()
+    if err != nil {
+        log.Fatal(err)
+    }
+    format, _ := built.GetTag("format")
+    fmt.Println(format == taggedurn.ConstraintExact{Value: "pdf"}) // true
 
     // Check matching
     pattern, _ := taggedurn.NewTaggedUrnFromString("cap:generate")
@@ -68,17 +75,18 @@ func main() {
 | Function/Method | Description |
 |-----------------|-------------|
 | `NewTaggedUrnFromString(s)` | Parse URN from string |
-| `NewTaggedUrnFromTags(prefix, tags)` | Create from prefix and tag map |
+| `NewTaggedUrnFromTags(prefix, tags)` | Create from prefix and a map of constraints (checked) |
 | `Empty(prefix)` | Create empty URN with prefix |
-| `GetTag(key)` | Get value for a tag key |
-| `HasTag(key, value)` | Check if tag exists with value |
-| `WithTag(key, value)` | Return new URN with tag added/updated |
+| `GetTag(key)` | The constraint for a key, and whether the URN mentions it |
+| `Constraint(key)` | The constraint for a key, `ConstraintMissing` when it is not mentioned |
+| `HasTag(key, value)` | Whether the URN writes the exact value `key=value` |
+| `HasMarkerTag(key)` | Whether the URN writes the marker `key` |
+| `WithTag(key, constraint)` | Return new URN with tag added/replaced (checked) |
 | `WithoutTag(key)` | Return new URN with tag removed |
 | `ConformsTo(pattern)` | Check if URN conforms to a pattern |
 | `Accepts(instance)` | Check if URN (as pattern) accepts an instance |
-| `CanHandle(request)` | Check if URN can handle a request |
 | `Specificity()` | Get graded specificity score |
-| `SpecificityTuple()` | Get (exact, mustHaveAny, mustNot) counts |
+| `SpecificityTuple()` | Count tags by form: (absent, exact, presentNot, present, optionalNot) |
 | `IsMoreSpecificThan(other)` | Compare specificity with another URN |
 | `LeastUpperBound(prefix, urns)` | The most specific URN every one of `urns` conforms to, made by the proved model |
 | `ToString()` | Get canonical string representation |
@@ -89,9 +97,11 @@ func main() {
 | Method | Description |
 |--------|-------------|
 | `NewTaggedUrnBuilder(prefix)` | Create builder with prefix |
-| `Tag(key, value)` | Add or update a tag (chainable) |
-| `Build()` | Build the URN |
-| `BuildWithValidation()` | Build with validation (returns error) |
+| `Tag(key, value)` | Add the exact value, taken literally (chainable) |
+| `Marker(key)` | Add a marker (chainable) |
+| `Constraint(key, constraint)` | Add a tag of any form (chainable) |
+| `Build()` | Build the URN, or the first error a tag met |
+| `BuildAllowEmpty()` | Build, allowing no tags |
 
 ## Matching Semantics
 
@@ -124,12 +134,14 @@ from them.
 
 ## Graded Specificity
 
-| Value Type | Score |
-|------------|-------|
-| Exact value (`K=v`) | 3 |
-| Must-have-any (`K=*`) | 2 |
-| Must-not-have (`K=!`) | 1 |
-| Unspecified (`K=?`) or missing | 0 |
+| Form | Score |
+|------|-------|
+| Unconstrained (`?K`) or missing | 0 |
+| Absent or not v (`K?=v`) | 1 |
+| Present (`K`) | 2 |
+| Present and not v (`K!=v`) | 3 |
+| Exact value (`K=v`) | 4 |
+| Absent (`!K`) | 5 |
 
 ## Error Codes
 
@@ -137,15 +149,15 @@ from them.
 |------|----------|-------------|
 | 1 | `ErrorInvalidFormat` | Empty or malformed URN |
 | 2 | `ErrorEmptyTag` | Empty key or value component |
-| 3 | `ErrorInvalidCharacter` | Disallowed character in key/value |
+| 3 | `ErrorInvalidCharacter` | Disallowed character in prefix, key or value |
 | 4 | `ErrorInvalidTagFormat` | Tag not in key=value format |
 | 5 | `ErrorMissingPrefix` | URN does not start with prefix |
 | 6 | `ErrorDuplicateKey` | Same key appears twice |
-| 7 | `ErrorNumericKey` | Key is purely numeric |
 | 8 | `ErrorUnterminatedQuote` | Quoted value never closed |
 | 9 | `ErrorInvalidEscapeSequence` | Invalid escape in quoted value |
 | 10 | `ErrorEmptyPrefix` | Prefix is empty |
 | 11 | `ErrorPrefixMismatch` | Prefixes don't match in comparison |
+| 12 | `ErrorWhitespaceInInput` | Input has leading or trailing whitespace |
 
 ## Testing
 
