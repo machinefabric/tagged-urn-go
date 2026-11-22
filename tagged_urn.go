@@ -979,6 +979,14 @@ func ValuesMeet(a, b Constraint) bool {
 	return ok
 }
 
+// AdmitsAbsence reports whether what this URN writes at key lets the key be
+// absent: `!key`, `?key` and `key?=v` do, and so does a key the URN does not
+// mention, which says nothing of it; `key`, `key=v` and `key!=v` do not.
+// Decided by the model: absence satisfies the constraint (formal.ValuesMatch).
+func (c *TaggedUrn) AdmitsAbsence(key string) bool {
+	return ValuesMatch(ConstraintAbsent{}, c.Constraint(key))
+}
+
 // ValuesMatchClosed decides one key of a complete thing against a pattern: an
 // omitted key is absent. (formal.ValuesMatchClosed.)
 func ValuesMatchClosed(inst, patt Constraint) bool {
