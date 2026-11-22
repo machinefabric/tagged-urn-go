@@ -5,13 +5,14 @@ Go implementation of Tagged URN with strict validation, pattern matching, and gr
 ## Features
 
 - **Strict Rule Enforcement** - Follows exact same rules as Rust, JavaScript, and Objective-C implementations
-- **Six Tag Forms** - exact `k=v`, present `k`, absent `!k`, unconstrained `?k`, `k?=v` (absent or not v), `k!=v` (present and not v)
-- **Typed Tags** - Each tag is stored as the constraint it writes (`taggedurn.Constraint`: `ConstraintExact`, `ConstraintPresent`, …)
+- **Tag Forms** - exact `k=v`, present `k`, absent `!k`, unconstrained `?k`, `k?=v` (absent or not v), `k!=v` (present and not v)
+- **Sets of Values** - `k=a|b` (one of), `k!=a|b` (none of), `k?=a|b` (absent, or none of), `k=a|b|!` (absent, or one of)
+- **Typed Tags** - Each tag is stored as the constraint it writes (`taggedurn.Constraint`: a `ConstraintWritten`, whether the key may be absent and the values it may have), made with `Exact`, `Present`, `OneOf`, `NoneOf`, …
 - **Identifiers** - The prefix and every key are an ASCII letter followed by ASCII letters, digits and `-`
 - **Case Insensitive** - The prefix, keys and unquoted values are lowered; quoted values keep their case
 - **Literal Quoting** - A quoted value is always the literal value: `x="*"` is the exact value `*`
 - **Tag Order Independent** - Canonical alphabetical sorting
-- **Graded Specificity** - `?k` 0, `k?=v` 1, `k` 2, `k!=v` 3, `k=v` 4, `!k` 5
+- **Graded Specificity** - By what a tag allows: `?k` 0, `k?=v` and `k=v|!` 1, `k` 2, `k!=v` and `k=a|b` 3, `k=v` 4, `!k` 5
 - **JSON Serialization** - Full JSON marshal/unmarshal support
 - **Proved Relations** - Refinement, equivalence and specificity are code generated from the proved model
 
@@ -51,7 +52,8 @@ func main() {
         log.Fatal(err)
     }
     format, _ := built.GetTag("format")
-    fmt.Println(format == taggedurn.ConstraintExact{Value: "pdf"}) // true
+    value, _ := taggedurn.ExactValue(format)
+    fmt.Println(value == "pdf") // true
 
     // Check matching
     pattern, _ := taggedurn.NewTaggedUrnFromString("cap:generate")
@@ -88,10 +90,28 @@ func main() {
 | `Specificity()` | Get graded specificity score |
 | `SpecificityTuple()` | Count tags by form: (absent, exact, presentNot, present, optionalNot) |
 | `IsMoreSpecificThan(other)` | Compare specificity with another URN |
-| `Compare(other)` | Order by parts: prefix, then each tag by key, constraint form, value |
+| `Compare(other)` | Order by parts: prefix, then each tag by key, constraint form, values |
 | `LeastUpperBound(prefix, urns)` | The most specific URN every one of `urns` conforms to, made by the proved model |
 | `ToString()` | Get canonical string representation |
 | `Hash()` | Get SHA256 hash of canonical form |
+
+### Constraints
+
+| Function | Writes | Constraint |
+|----------|--------|------------|
+| `Unconstrained()` | `?k` | any state, absent or any value |
+| `OptionalNot(v)` | `k?=v` | absent, or there and not `v` |
+| `Present()` | `k` | there, with any value |
+| `PresentNot(v)` | `k!=v` | there, and not `v` |
+| `Exact(v)` | `k=v` | there, and exactly `v` |
+| `Absent()` | `!k` | not there |
+| `OneOf(values, orAbsent)` | `k=a\|b`, `k=a\|b\|!` | there with one of the values; or absent when `orAbsent` |
+| `NoneOf(values, orAbsent)` | `k!=a\|b`, `k?=a\|b` | there with none of the values; or absent when `orAbsent` |
+| `CanonicalConstraint(c)` | | the same constraint with its values each once, in increasing order |
+| `ExactValue(c)` | | the value of `k=v`, when the constraint is that form |
+| `IsEmptyForm(c)` | | whether the constraint allows no state at all (no text writes it) |
+
+A URN keeps every constraint canonical, so two that say the same thing are equal.
 
 ### TaggedUrnBuilder
 
@@ -135,14 +155,16 @@ from them.
 
 ## Graded Specificity
 
-| Form | Score |
-|------|-------|
-| Unconstrained (`?K`) or missing | 0 |
-| Absent or not v (`K?=v`) | 1 |
-| Present (`K`) | 2 |
-| Present and not v (`K!=v`) | 3 |
-| Exact value (`K=v`) | 4 |
-| Absent (`!K`) | 5 |
+Each tag scores by what it allows:
+
+| What the key allows | e.g. | Score |
+|---------------------|------|-------|
+| Absence and every value, or the tag is missing | `?K` | 0 |
+| Absence and some values, not every value | `K?=v`, `K=v\|!` | 1 |
+| Every value | `K` | 2 |
+| Two or more values, not every value | `K!=v`, `K=a\|b` | 3 |
+| Exactly one value | `K=v` | 4 |
+| Only absence | `!K` | 5 |
 
 ## Error Codes
 
@@ -159,6 +181,7 @@ from them.
 | 10 | `ErrorEmptyPrefix` | Prefix is empty |
 | 11 | `ErrorPrefixMismatch` | Prefixes don't match in comparison |
 | 12 | `ErrorWhitespaceInInput` | Input has leading or trailing whitespace |
+| 13 | `ErrorDuplicateValue` | A value given twice in one tag's set of values |
 
 ## Testing
 

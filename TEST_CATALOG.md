@@ -2,7 +2,7 @@
 
 Generated from the test catalogue. Edit the tests, not this file.
 
-117 tests: 117 numbered, 0 unnumbered.
+121 tests: 121 numbered, 0 unnumbered.
 
 ## Numbered
 
@@ -96,7 +96,7 @@ Generated from the test catalogue. Edit the tests, not this file.
 | TEST86 | tagged-urn/tagged-urn-go | go | `Test0086_CompatibilityWithSpecialValues` | tagged_urn_test.go:1769 | TEST0086: Compatibility with special values |
 | TEST87 | tagged-urn/tagged-urn-go | go | `Test0087_SpecificityWithSpecialValues` | tagged_urn_test.go:1814 | TEST0087: Specificity with special values |
 | TEST88 | tagged-urn/tagged-urn-go | go | `Test0088_BuilderRejectsEmptyValue` | tagged_urn_test.go:2198 | TEST: Builder rejects empty value |
-| TEST392 | tagged-urn/tagged-urn-go | go | `Test0392_LeastUpperBound` | tagged_urn_test.go:2205 | TEST0392: the bound of several URNs: the values they share, a key every one sets to differing values as "some value", the coarser of two comparable URNs, nothing for none, and another prefix refused |
+| TEST392 | tagged-urn/tagged-urn-go | go | `Test0392_LeastUpperBound` | tagged_urn_test.go:2205 | TEST0392: the bound of several URNs: the values they share, a key every one sets to differing values as the set of those values, the coarser of two comparable URNs, nothing for none, and another prefix refused |
 | TEST578 | tagged-urn/tagged-urn-go | go | `Test0578_EquivalentIdenticalTags` | tagged_urn_test.go:1872 | TEST0578: Equivalent URNs with identical tag sets |
 | TEST579 | tagged-urn/tagged-urn-go | go | `Test0579_NotEquivalentWhenOneMoreSpecific` | tagged_urn_test.go:1884 | TEST0579: Non-equivalent URNs where one is more specific |
 | TEST580 | tagged-urn/tagged-urn-go | go | `Test0580_ComparableSpecializationChain` | tagged_urn_test.go:1896 | TEST0580: Comparable URNs on the same specialization chain |
@@ -120,9 +120,13 @@ Generated from the test catalogue. Edit the tests, not this file.
 | TEST6752 | tagged-urn/tagged-urn-go | go | `Test6752_QualifierValueAlias` | tagged_urn_test.go:2246 | TEST6752: An unquoted value that begins with ? or ! is that qualifier (x=?v is x?=v, x=!v is x!=v); a quoted one is literal |
 | TEST6753 | tagged-urn/tagged-urn-go | go | `Test6753_PrefixAndKeyAreIdentifiers` | tagged_urn_test.go:2270 | TEST6753: The prefix and every key are identifiers (an ASCII letter, then ASCII letters, digits and -), lowered, in parsing and in every constructor |
 | TEST6754 | tagged-urn/tagged-urn-go | go | `Test6754_EveryValueReadsBack` | tagged_urn_test.go:2317 | TEST6754: Every value a URN holds prints so that it reads back as itself |
-| TEST6755 | tagged-urn/tagged-urn-go | go | `Test6755_UnquotedValueTakesAnyNonSeparator` | tagged_urn_test.go:2333 | TEST6755: An unquoted value takes any character but ; = " \ and whitespace |
-| TEST6756 | tagged-urn/tagged-urn-go | go | `Test6756_QuotedValueIsLiteral` | tagged_urn_test.go:2351 | TEST6756: A quoted value is the literal value: a quoted *, ? or ! is never a sigil, and a quoted ?=v is never a qualifier |
-| TEST7210 | tagged-urn/tagged-urn-go | go | `Test7210_AdmitsAbsenceByForm` | tagged_urn_test.go:2426 | TEST7210: A written tag lets its key be absent exactly when it is !k, ?k or k?=v; a key the URN does not mention says nothing of it, so it allows absence too. |
-| TEST7223 | tagged-urn/tagged-urn-go | go | `Test7223_UrnReadBackFromItsHandle` | tagged_urn_test.go:2413 | TEST7223: A URN read back from its model handle is the URN: its prefix and every tag, each form and a quoted value included. |
-| TEST7241 | tagged-urn/tagged-urn-go | go | `Test7241_UrnsAreOrderedByTheirParts` | tagged_urn_test.go:2385 | TEST7241: URNs are ordered by their parts, never their text: the prefix, then each tag in key order by key, then by its constraint's form (unconstrained, optionalNot, present, presentNot, exact, absent), then by its value |
+| TEST6755 | tagged-urn/tagged-urn-go | go | `Test6755_UnquotedValueTakesAnyNonSeparator` | tagged_urn_test.go:2333 | TEST6755: An unquoted value takes any character but ; = \| " \ and whitespace |
+| TEST6756 | tagged-urn/tagged-urn-go | go | `Test6756_QuotedValueIsLiteral` | tagged_urn_test.go:2353 | TEST6756: A quoted value is the literal value: a quoted *, ? or ! is never a sigil, and a quoted ?=v is never a qualifier |
+| TEST7210 | tagged-urn/tagged-urn-go | go | `Test7210_AdmitsAbsenceByForm` | tagged_urn_test.go:2507 | TEST7210: A written tag lets its key be absent exactly when it is !k, ?k or k?=v; a key the URN does not mention says nothing of it, so it allows absence too. |
+| TEST7223 | tagged-urn/tagged-urn-go | go | `Test7223_UrnReadBackFromItsHandle` | tagged_urn_test.go:2415 | TEST7223: A URN read back from its model handle is the URN: its prefix and every tag, each form and a quoted value included. |
+| TEST7224 | tagged-urn/tagged-urn-go | go | `Test7224_SetFormsParseAndPrint` | tagged_urn_test.go:2428 | TEST7224: Each set form parses to the set it writes and prints canonically — values once, in increasing order, `!` last — reading back as itself; the qualifier aliases write the same sets. |
+| TEST7225 | tagged-urn/tagged-urn-go | go | `Test7225_SetFormsRefused` | tagged_urn_test.go:2454 | TEST7225: A set of values refuses a value given twice, an empty member, a bare sigil or qualifier among its values, and `!` under a qualifier; a literal `\|` is quoted. |
+| TEST7226 | tagged-urn/tagged-urn-go | go | `Test7226_BoundIsExactPerKey` | tagged_urn_test.go:2474 | TEST7226: The bound of several URNs is exact per key: png and jpeg are bound by ext=jpeg\|png, a value and its absence by ext=v\|!, and a value and any value by ext. |
+| TEST7227 | tagged-urn/tagged-urn-go | go | `Test7227_SetScores` | tagged_urn_test.go:2493 | TEST7227: A set scores by what it allows — two or more values 3, absence and some values 1 — and narrowing never lowers a score, though two on one chain can tie. |
+| TEST7241 | tagged-urn/tagged-urn-go | go | `Test7241_UrnsAreOrderedByTheirParts` | tagged_urn_test.go:2387 | TEST7241: URNs are ordered by their parts, never their text: the prefix, then each tag in key order by key, then by its constraint's form (unconstrained, optionalNot, present, presentNot, exact, absent), then by its value |
 
