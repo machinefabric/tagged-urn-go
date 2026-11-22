@@ -338,6 +338,20 @@ func Refines(a Wf, b Wf) (result bool, err error) {
 	return lungo.DecodeValue(program(), status, out, lungo.BoolType)
 }
 
+// RefinesBothClosed is Lean's TaggedUrn.Exec.refinesBothClosed : TaggedUrn.Exec.Wf → TaggedUrn.Exec.Wf → Bool
+func RefinesBothClosed(a Wf, b Wf) (result bool, err error) {
+	w := lungo.NewCall(program())
+	defer w.Release()
+	if err = WfType().Encode(w, a); err != nil {
+		return
+	}
+	if err = WfType().Encode(w, b); err != nil {
+		return
+	}
+	status, out := call(C.lungo_entry(C.tagged_urn_formal__call_l_TaggedUrn_dExec_drefinesBothClosed), w.Bytes())
+	return lungo.DecodeValue(program(), status, out, lungo.BoolType)
+}
+
 // RefinesClosed is Lean's TaggedUrn.Exec.refinesClosed : TaggedUrn.Exec.Wf → TaggedUrn.Exec.Wf → Bool
 func RefinesClosed(a Wf, b Wf) (result bool, err error) {
 	w := lungo.NewCall(program())
