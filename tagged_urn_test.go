@@ -2407,3 +2407,19 @@ func Test7241_UrnsAreOrderedByTheirParts(t *testing.T) {
 	// Writing order is no part of it.
 	assert.Equal(t, 0, mustParse(t, "t:b;a").Compare(mustParse(t, "t:a;b")))
 }
+
+// TEST7210: A written tag lets its key be absent exactly when it is !k, ?k or k?=v;
+// a key the URN does not mention says nothing of it, so it allows absence too.
+func Test7210_AdmitsAbsenceByForm(t *testing.T) {
+	urn, err := NewTaggedUrnFromString("media:!a;?b;c?=v;d;e=v;f!=v")
+	require.NoError(t, err)
+	assert.True(t, urn.AdmitsAbsence("a"))
+	assert.True(t, urn.AdmitsAbsence("b"))
+	assert.True(t, urn.AdmitsAbsence("c"))
+	assert.False(t, urn.AdmitsAbsence("d"))
+	assert.False(t, urn.AdmitsAbsence("e"))
+	assert.False(t, urn.AdmitsAbsence("f"))
+	assert.True(t, urn.AdmitsAbsence("g"))
+	// Keys are read as the URN stores them: lowercase.
+	assert.True(t, urn.AdmitsAbsence("A"))
+}
