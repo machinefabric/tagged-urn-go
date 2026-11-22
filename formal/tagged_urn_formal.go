@@ -324,6 +324,17 @@ func MeetsClosed(a Wf, b Wf) (result bool, err error) {
 	return lungo.DecodeValue(program(), status, out, lungo.BoolType)
 }
 
+// Parts is Lean's TaggedUrn.Exec.parts : TaggedUrn.Exec.Wf → String × List (String × TaggedUrn.Constraint)
+func Parts(w_ Wf) (result lungo.Pair[string, []lungo.Pair[string, Constraint]], err error) {
+	w := lungo.NewCall(program())
+	defer w.Release()
+	if err = WfType().Encode(w, w_); err != nil {
+		return
+	}
+	status, out := call(C.lungo_entry(C.tagged_urn_formal__call_l_TaggedUrn_dExec_dparts), w.Bytes())
+	return lungo.DecodeValue(program(), status, out, lungo.PairType(lungo.StringType, lungo.ListType(lungo.PairType(lungo.StringType, ConstraintType()))))
+}
+
 // Refines is Lean's TaggedUrn.Exec.refines : TaggedUrn.Exec.Wf → TaggedUrn.Exec.Wf → Bool
 func Refines(a Wf, b Wf) (result bool, err error) {
 	w := lungo.NewCall(program())

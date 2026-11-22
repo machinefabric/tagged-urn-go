@@ -2408,6 +2408,19 @@ func Test7241_UrnsAreOrderedByTheirParts(t *testing.T) {
 	assert.Equal(t, 0, mustParse(t, "t:b;a").Compare(mustParse(t, "t:a;b")))
 }
 
+// TEST7223: A URN read back from its model handle is the URN: its prefix and every
+// tag, each form and a quoted value included.
+func Test7223_UrnReadBackFromItsHandle(t *testing.T) {
+	for _, text := range []string{`media:!a;?b;c?=v;d;e=v;f!=v;g="x y"`, "cap:", "media:pdf"} {
+		urn := mustParse(t, text)
+		back, err := NewTaggedUrnFromFormal(urn.Formal())
+		require.NoError(t, err, text)
+		assert.Equal(t, urn.GetPrefix(), back.GetPrefix(), text)
+		assert.Equal(t, urn.AllTags(), back.AllTags(), text)
+		assert.True(t, back.Equals(urn), text)
+	}
+}
+
 // TEST7210: A written tag lets its key be absent exactly when it is !k, ?k or k?=v;
 // a key the URN does not mention says nothing of it, so it allows absence too.
 func Test7210_AdmitsAbsenceByForm(t *testing.T) {

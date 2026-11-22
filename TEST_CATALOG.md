@@ -2,7 +2,7 @@
 
 Generated from the test catalogue. Edit the tests, not this file.
 
-115 tests: 115 numbered, 0 unnumbered.
+117 tests: 117 numbered, 0 unnumbered.
 
 ## Numbered
 
@@ -122,5 +122,7 @@ Generated from the test catalogue. Edit the tests, not this file.
 | TEST6754 | tagged-urn/tagged-urn-go | go | `Test6754_EveryValueReadsBack` | tagged_urn_test.go:2317 | TEST6754: Every value a URN holds prints so that it reads back as itself |
 | TEST6755 | tagged-urn/tagged-urn-go | go | `Test6755_UnquotedValueTakesAnyNonSeparator` | tagged_urn_test.go:2333 | TEST6755: An unquoted value takes any character but ; = " \ and whitespace |
 | TEST6756 | tagged-urn/tagged-urn-go | go | `Test6756_QuotedValueIsLiteral` | tagged_urn_test.go:2351 | TEST6756: A quoted value is the literal value: a quoted *, ? or ! is never a sigil, and a quoted ?=v is never a qualifier |
+| TEST7210 | tagged-urn/tagged-urn-go | go | `Test7210_AdmitsAbsenceByForm` | tagged_urn_test.go:2426 | TEST7210: A written tag lets its key be absent exactly when it is !k, ?k or k?=v; a key the URN does not mention says nothing of it, so it allows absence too. |
+| TEST7223 | tagged-urn/tagged-urn-go | go | `Test7223_UrnReadBackFromItsHandle` | tagged_urn_test.go:2413 | TEST7223: A URN read back from its model handle is the URN: its prefix and every tag, each form and a quoted value included. |
 | TEST7241 | tagged-urn/tagged-urn-go | go | `Test7241_UrnsAreOrderedByTheirParts` | tagged_urn_test.go:2385 | TEST7241: URNs are ordered by their parts, never their text: the prefix, then each tag in key order by key, then by its constraint's form (unconstrained, optionalNot, present, presentNot, exact, absent), then by its value |
 
