@@ -109,6 +109,21 @@ func (c *TaggedUrn) Formal() formal.Wf {
 	return c.formal
 }
 
+// NewTaggedUrnFromFormal is the URN a model handle stands for, such as one
+// generated code sharing the type made. Its prefix, keys and constraints are
+// checked as NewTaggedUrnFromTags checks them. (formal.Parts.)
+func NewTaggedUrnFromFormal(w formal.Wf) (*TaggedUrn, error) {
+	parts, err := formal.Parts(w)
+	if err != nil {
+		panic(fmt.Sprintf("tagged-urn: the model could not read a URN's parts: %v", err))
+	}
+	tags := make(map[string]Constraint, len(parts.Second))
+	for _, p := range parts.Second {
+		tags[p.First] = p.Second
+	}
+	return NewTaggedUrnFromTags(parts.First, tags)
+}
+
 // TaggedUrnRelationKind classifies the order-theoretic relation between two
 // tagged URNs. It is derived from Accepts/IsComparable/IsEquivalent and is
 // attached to coordinate deltas so callers can distinguish same-point edits,
