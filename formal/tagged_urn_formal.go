@@ -51,7 +51,7 @@ func call(entry C.lungo_entry, in []byte) (int32, []byte) {
 type Wf struct{ lungo.Opaque }
 
 // WfFingerprint is the layout fingerprint of Lean's TaggedUrn.Exec.Wf: a package using Wf from this one checks it.
-const WfFingerprint = "20e9f81ad195b2f4a481e7a5dcae2b3d0de6efe7b3dc720db0e2aa3b52527785"
+const WfFingerprint = "4fed413de2fb915a7facb2d88381b8a592cbf88ecfc0037e9ed1d5892c5169de"
 
 type wfDescriptor struct{}
 
@@ -67,7 +67,7 @@ func (wfDescriptor) Decode(r *lungo.Reader) (Wf, error) {
 	return Wf{o}, err
 }
 
-// Constraint is Lean's TaggedUrn.Constraint: one of ConstraintMissing, ConstraintUnconstrained, ConstraintOptionalNot, ConstraintPresent, ConstraintPresentNot, ConstraintExact, ConstraintAbsent.
+// Constraint is Lean's TaggedUrn.Constraint: one of ConstraintMissing, ConstraintWritten.
 type Constraint interface{ isConstraint() }
 
 // ConstraintMissing is Lean's TaggedUrn.Constraint.missing.
@@ -75,44 +75,16 @@ type ConstraintMissing struct{}
 
 func (ConstraintMissing) isConstraint() {}
 
-// ConstraintUnconstrained is Lean's TaggedUrn.Constraint.unconstrained.
-type ConstraintUnconstrained struct{}
-
-func (ConstraintUnconstrained) isConstraint() {}
-
-// ConstraintOptionalNot is Lean's TaggedUrn.Constraint.optionalNot.
-type ConstraintOptionalNot struct {
-	Value string
+// ConstraintWritten is Lean's TaggedUrn.Constraint.written.
+type ConstraintWritten struct {
+	Absent bool
+	Values Values
 }
 
-func (ConstraintOptionalNot) isConstraint() {}
-
-// ConstraintPresent is Lean's TaggedUrn.Constraint.present.
-type ConstraintPresent struct{}
-
-func (ConstraintPresent) isConstraint() {}
-
-// ConstraintPresentNot is Lean's TaggedUrn.Constraint.presentNot.
-type ConstraintPresentNot struct {
-	Value string
-}
-
-func (ConstraintPresentNot) isConstraint() {}
-
-// ConstraintExact is Lean's TaggedUrn.Constraint.exact.
-type ConstraintExact struct {
-	Value string
-}
-
-func (ConstraintExact) isConstraint() {}
-
-// ConstraintAbsent is Lean's TaggedUrn.Constraint.absent.
-type ConstraintAbsent struct{}
-
-func (ConstraintAbsent) isConstraint() {}
+func (ConstraintWritten) isConstraint() {}
 
 // ConstraintFingerprint is the layout fingerprint of Lean's TaggedUrn.Constraint: a package using Constraint from this one checks it.
-const ConstraintFingerprint = "481fc09e23c6415a7c3f05887577ec940a6ecc84b005e63476c1060b59edcac7"
+const ConstraintFingerprint = "b65d5193904316a2793952f589e3aac63bfc80f801ab20f2693643fcf9894159"
 
 type constraintDescriptor struct{}
 
@@ -133,61 +105,18 @@ func (t constraintDescriptor) Encode(w *lungo.Writer, v Constraint) error {
 			return lungo.Malformed("a nil *ConstraintMissing")
 		}
 		return t.Encode(w, *x)
-	case ConstraintUnconstrained:
+	case ConstraintWritten:
 		w.U32(1)
-		return nil
-	case *ConstraintUnconstrained:
-		if x == nil {
-			return lungo.Malformed("a nil *ConstraintUnconstrained")
+		if err := lungo.BoolType.Encode(w, x.Absent); err != nil {
+			return err
 		}
-		return t.Encode(w, *x)
-	case ConstraintOptionalNot:
-		w.U32(2)
-		if err := lungo.StringType.Encode(w, x.Value); err != nil {
+		if err := ValuesType().Encode(w, x.Values); err != nil {
 			return err
 		}
 		return nil
-	case *ConstraintOptionalNot:
+	case *ConstraintWritten:
 		if x == nil {
-			return lungo.Malformed("a nil *ConstraintOptionalNot")
-		}
-		return t.Encode(w, *x)
-	case ConstraintPresent:
-		w.U32(3)
-		return nil
-	case *ConstraintPresent:
-		if x == nil {
-			return lungo.Malformed("a nil *ConstraintPresent")
-		}
-		return t.Encode(w, *x)
-	case ConstraintPresentNot:
-		w.U32(4)
-		if err := lungo.StringType.Encode(w, x.Value); err != nil {
-			return err
-		}
-		return nil
-	case *ConstraintPresentNot:
-		if x == nil {
-			return lungo.Malformed("a nil *ConstraintPresentNot")
-		}
-		return t.Encode(w, *x)
-	case ConstraintExact:
-		w.U32(5)
-		if err := lungo.StringType.Encode(w, x.Value); err != nil {
-			return err
-		}
-		return nil
-	case *ConstraintExact:
-		if x == nil {
-			return lungo.Malformed("a nil *ConstraintExact")
-		}
-		return t.Encode(w, *x)
-	case ConstraintAbsent:
-		w.U32(6)
-		return nil
-	case *ConstraintAbsent:
-		if x == nil {
-			return lungo.Malformed("a nil *ConstraintAbsent")
+			return lungo.Malformed("a nil *ConstraintWritten")
 		}
 		return t.Encode(w, *x)
 	}
@@ -204,40 +133,103 @@ func (t constraintDescriptor) Decode(r *lungo.Reader) (Constraint, error) {
 		var v ConstraintMissing
 		return v, nil
 	case 1:
-		var v ConstraintUnconstrained
-		return v, nil
-	case 2:
-		var v ConstraintOptionalNot
-		f0, err := lungo.StringType.Decode(r)
+		var v ConstraintWritten
+		f0, err := lungo.BoolType.Decode(r)
 		if err != nil {
 			return nil, err
 		}
-		v.Value = f0
-		return v, nil
-	case 3:
-		var v ConstraintPresent
-		return v, nil
-	case 4:
-		var v ConstraintPresentNot
-		f0, err := lungo.StringType.Decode(r)
+		v.Absent = f0
+		f1, err := ValuesType().Decode(r)
 		if err != nil {
 			return nil, err
 		}
-		v.Value = f0
-		return v, nil
-	case 5:
-		var v ConstraintExact
-		f0, err := lungo.StringType.Decode(r)
-		if err != nil {
-			return nil, err
-		}
-		v.Value = f0
-		return v, nil
-	case 6:
-		var v ConstraintAbsent
+		v.Values = f1
 		return v, nil
 	}
 	return nil, lungo.Malformed("constructor index %d of TaggedUrn.Constraint", c)
+}
+
+// Values is Lean's TaggedUrn.Values: one of ValuesOneOf, ValuesNoneOf.
+type Values interface{ isValues() }
+
+// ValuesOneOf is Lean's TaggedUrn.Values.oneOf.
+type ValuesOneOf struct {
+	Vs []string
+}
+
+func (ValuesOneOf) isValues() {}
+
+// ValuesNoneOf is Lean's TaggedUrn.Values.noneOf.
+type ValuesNoneOf struct {
+	Vs []string
+}
+
+func (ValuesNoneOf) isValues() {}
+
+// ValuesFingerprint is the layout fingerprint of Lean's TaggedUrn.Values: a package using Values from this one checks it.
+const ValuesFingerprint = "d39e9210a7238d1db8ec7497149536d75384770f7494bb031e64d4e3c61925f6"
+
+type valuesDescriptor struct{}
+
+// ValuesType describes TaggedUrn.Values for polymorphic functions.
+func ValuesType() lungo.Type[Values] {
+	return valuesDescriptor{}
+}
+
+func (t valuesDescriptor) Expr() []byte { return lungo.InductiveExpr(2) }
+
+func (t valuesDescriptor) Encode(w *lungo.Writer, v Values) error {
+	switch x := v.(type) {
+	case ValuesOneOf:
+		w.U32(0)
+		if err := lungo.ListType(lungo.StringType).Encode(w, x.Vs); err != nil {
+			return err
+		}
+		return nil
+	case *ValuesOneOf:
+		if x == nil {
+			return lungo.Malformed("a nil *ValuesOneOf")
+		}
+		return t.Encode(w, *x)
+	case ValuesNoneOf:
+		w.U32(1)
+		if err := lungo.ListType(lungo.StringType).Encode(w, x.Vs); err != nil {
+			return err
+		}
+		return nil
+	case *ValuesNoneOf:
+		if x == nil {
+			return lungo.Malformed("a nil *ValuesNoneOf")
+		}
+		return t.Encode(w, *x)
+	}
+	return lungo.Malformed("a nil Values")
+}
+
+func (t valuesDescriptor) Decode(r *lungo.Reader) (Values, error) {
+	c, err := r.U32()
+	if err != nil {
+		return nil, err
+	}
+	switch c {
+	case 0:
+		var v ValuesOneOf
+		f0, err := lungo.ListType(lungo.StringType).Decode(r)
+		if err != nil {
+			return nil, err
+		}
+		v.Vs = f0
+		return v, nil
+	case 1:
+		var v ValuesNoneOf
+		f0, err := lungo.ListType(lungo.StringType).Decode(r)
+		if err != nil {
+			return nil, err
+		}
+		v.Vs = f0
+		return v, nil
+	}
+	return nil, lungo.Malformed("constructor index %d of TaggedUrn.Values", c)
 }
 
 // Comparable is Lean's TaggedUrn.Exec.comparable : TaggedUrn.Exec.Wf → TaggedUrn.Exec.Wf → Bool
@@ -385,6 +377,17 @@ func Specificity(a Wf) (result *big.Int, err error) {
 		return
 	}
 	status, out := call(C.lungo_entry(C.tagged_urn_formal__call_l_TaggedUrn_dExec_dspecificity), w.Bytes())
+	return lungo.DecodeValue(program(), status, out, lungo.NatType)
+}
+
+// TagSpecificity is Lean's TaggedUrn.Exec.tagSpecificity : TaggedUrn.Constraint → Nat
+func TagSpecificity(c_ Constraint) (result *big.Int, err error) {
+	w := lungo.NewCall(program())
+	defer w.Release()
+	if err = ConstraintType().Encode(w, c_); err != nil {
+		return
+	}
+	status, out := call(C.lungo_entry(C.tagged_urn_formal__call_l_TaggedUrn_dExec_dtagSpecificity), w.Bytes())
 	return lungo.DecodeValue(program(), status, out, lungo.NatType)
 }
 

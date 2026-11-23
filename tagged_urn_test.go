@@ -10,7 +10,7 @@ import (
 )
 
 func exact(value string) Constraint {
-	return ConstraintExact{Value: value}
+	return Exact(value)
 }
 
 // TEST0001: Tagged urn creation
@@ -24,7 +24,7 @@ func Test0001_TaggedUrnCreation(t *testing.T) {
 	// data-processing is a valueless tag, stored as present (must-have-any)
 	dataProcessing, exists := taggedUrn.GetTag("data-processing")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, dataProcessing)
+	assert.Equal(t, Present(), dataProcessing)
 
 	assert.True(t, taggedUrn.HasMarkerTag("transform"))
 
@@ -165,7 +165,7 @@ func Test0010_ValuelessTagParsing(t *testing.T) {
 	assert.NoError(t, err)
 	value, exists := taggedUrn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, value)
+	assert.Equal(t, Present(), value)
 	assert.Equal(t, "cap:optimize", taggedUrn.ToString())
 }
 
@@ -950,7 +950,7 @@ func Test0049_WildcardRestrictions(t *testing.T) {
 
 	value, exists := validValue.GetTag("key")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, value)
+	assert.Equal(t, Present(), value)
 }
 
 // TEST0050: Duplicate key rejection
@@ -1233,7 +1233,7 @@ func Test0063_ValuelessTagParsingSingle(t *testing.T) {
 
 	value, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, value)
+	assert.Equal(t, Present(), value)
 	// Serializes as value-less (no =*)
 	assert.Equal(t, "cap:optimize", urn.ToString())
 }
@@ -1246,15 +1246,15 @@ func Test0064_ValuelessTagParsingMultiple(t *testing.T) {
 
 	fast, exists := urn.GetTag("fast")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, fast)
+	assert.Equal(t, Present(), fast)
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, optimize)
+	assert.Equal(t, Present(), optimize)
 
 	secure, exists := urn.GetTag("secure")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, secure)
+	assert.Equal(t, Present(), secure)
 
 	// Serializes alphabetically as value-less
 	assert.Equal(t, "cap:fast;optimize;secure", urn.ToString())
@@ -1270,7 +1270,7 @@ func Test0065_ValuelessTagMixedWithValued(t *testing.T) {
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, optimize)
+	assert.Equal(t, Present(), optimize)
 
 	ext, exists := urn.GetTag("ext")
 	assert.True(t, exists)
@@ -1278,7 +1278,7 @@ func Test0065_ValuelessTagMixedWithValued(t *testing.T) {
 
 	secure, exists := urn.GetTag("secure")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, secure)
+	assert.Equal(t, Present(), secure)
 
 	// Serializes alphabetically
 	assert.Equal(t, "cap:ext=pdf;generate;optimize;secure", urn.ToString())
@@ -1294,7 +1294,7 @@ func Test0066_ValuelessTagAtEnd(t *testing.T) {
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, optimize)
+	assert.Equal(t, Present(), optimize)
 
 	assert.Equal(t, "cap:generate;optimize", urn.ToString())
 }
@@ -1415,15 +1415,15 @@ func Test0072_ValuelessTagCaseNormalization(t *testing.T) {
 
 	optimize, exists := urn.GetTag("optimize")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, optimize)
+	assert.Equal(t, Present(), optimize)
 
 	fast, exists := urn.GetTag("fast")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, fast)
+	assert.Equal(t, Present(), fast)
 
 	secure, exists := urn.GetTag("secure")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintPresent{}, secure)
+	assert.Equal(t, Present(), secure)
 
 	assert.Equal(t, "cap:fast;optimize;secure", urn.ToString())
 }
@@ -1534,7 +1534,7 @@ func Test0077_UnspecifiedQuestionMarkParsing(t *testing.T) {
 
 	value, exists := urn.GetTag("ext")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintUnconstrained{}, value)
+	assert.Equal(t, Unconstrained(), value)
 	// All three input aliases (?x, x?, x=?) parse to the constraint
 	// unconstrained and serialize as the canonical prefix form `?x`.
 	assert.Equal(t, "cap:?ext", urn.ToString())
@@ -1547,7 +1547,7 @@ func Test0078_MustNotHaveExclamationParsing(t *testing.T) {
 
 	value, exists := urn.GetTag("ext")
 	assert.True(t, exists)
-	assert.Equal(t, ConstraintAbsent{}, value)
+	assert.Equal(t, Absent(), value)
 	// All three input aliases (!x, x!, x=!) parse to the constraint
 	// absent and serialize as the canonical prefix form `!x`.
 	assert.Equal(t, "cap:!ext", urn.ToString())
@@ -2146,9 +2146,9 @@ func Test0593_BuilderWildcards(t *testing.T) {
 	// Six-form ladder: 3 markers × 2 = 6.
 	assert.Equal(t, 6, urn.Specificity())
 	val, _ := urn.GetTag("ext")
-	assert.Equal(t, ConstraintPresent{}, val)
+	assert.Equal(t, Present(), val)
 	val, _ = urn.GetTag("quality")
-	assert.Equal(t, ConstraintPresent{}, val)
+	assert.Equal(t, Present(), val)
 }
 
 // TEST0594: Builder with custom prefix
@@ -2201,7 +2201,7 @@ func Test0088_BuilderRejectsEmptyValue(t *testing.T) {
 	assert.Contains(t, err.Error(), "empty value")
 }
 
-// TEST0392: the bound of several URNs: the values they share, a key every one sets to differing values as "some value", the coarser of two comparable URNs, nothing for none, and another prefix refused
+// TEST0392: the bound of several URNs: the values they share, a key every one sets to differing values as the set of those values, the coarser of two comparable URNs, nothing for none, and another prefix refused
 func Test0392_LeastUpperBound(t *testing.T) {
 	p := func(s string) *TaggedUrn {
 		u, err := NewTaggedUrnFromString(s)
@@ -2214,7 +2214,7 @@ func Test0392_LeastUpperBound(t *testing.T) {
 		return b.ToString()
 	}
 
-	assert.Equal(t, p("media:ext;image").ToString(), bound(p("media:ext=png;image"), p("media:ext=jpeg;image")))
+	assert.Equal(t, p("media:ext=jpeg|png;image").ToString(), bound(p("media:ext=png;image"), p("media:ext=jpeg;image")))
 	// One input already holds the other: the bound is that input, not the wider `ext`.
 	assert.Equal(t, p("media:ext!=pdf").ToString(), bound(p("media:ext=png"), p("media:ext!=pdf")))
 	// A key one input omits says nothing there, so the bound says nothing either.
@@ -2246,10 +2246,10 @@ func errorCode(t *testing.T, err error) int {
 func Test6752_QualifierValueAlias(t *testing.T) {
 	assert.True(t, mustParse(t, "t:x=?v").Equals(mustParse(t, "t:x?=v")))
 	assert.Equal(t, "t:x?=v", mustParse(t, "t:x=?v").ToString())
-	assert.Equal(t, ConstraintOptionalNot{Value: "v"}, mustParse(t, "t:x=?v").Constraint("x"))
+	assert.Equal(t, OptionalNot("v"), mustParse(t, "t:x=?v").Constraint("x"))
 	assert.True(t, mustParse(t, "t:x=!v").Equals(mustParse(t, "t:x!=v")))
 	assert.Equal(t, "t:x!=v", mustParse(t, "t:x=!v").ToString())
-	assert.Equal(t, ConstraintPresentNot{Value: "v"}, mustParse(t, "t:x=!v").Constraint("x"))
+	assert.Equal(t, PresentNot("v"), mustParse(t, "t:x=!v").Constraint("x"))
 
 	for _, refused := range []string{"t:x=?*", "t:x=!?", "t:x=??", "t:x=?!", "t:x=!*", "t:?x=?v", "t:x!=!v"} {
 		_, err := NewTaggedUrnFromString(refused)
@@ -2329,13 +2329,15 @@ func Test6754_EveryValueReadsBack(t *testing.T) {
 	}
 }
 
-// TEST6755: An unquoted value takes any character but ; = " \ and whitespace
+// TEST6755: An unquoted value takes any character but ; = | " \ and whitespace
 func Test6755_UnquotedValueTakesAnyNonSeparator(t *testing.T) {
 	urn := mustParse(t, "t:k=a,b(c)")
 	assert.Equal(t, exact("a,b(c)"), urn.Constraint("k"))
 
-	symbols := mustParse(t, "t:k=x@y#z+%&~'[]{}<>^$|")
-	assert.Equal(t, exact("x@y#z+%&~'[]{}<>^$|"), symbols.Constraint("k"))
+	symbols := mustParse(t, "t:k=x@y#z+%&~'[]{}<>^$")
+	assert.Equal(t, exact("x@y#z+%&~'[]{}<>^$"), symbols.Constraint("k"))
+	// `|` separates the values of a set.
+	assert.Equal(t, OneOf([]string{"a", "b"}, false), mustParse(t, "t:k=a|b").Constraint("k"))
 
 	assert.Equal(t, exact("a,b"), mustParse(t, "t:k=A,B").Constraint("k"))
 
@@ -2371,7 +2373,7 @@ func Test6756_QuotedValueIsLiteral(t *testing.T) {
 	assert.Equal(t, exact("?=v"), mustParse(t, `t:x="?=v"`).Constraint("x"))
 
 	optional := mustParse(t, `t:?x="*"`)
-	assert.Equal(t, ConstraintOptionalNot{Value: "*"}, optional.Constraint("x"))
+	assert.Equal(t, OptionalNot("*"), optional.Constraint("x"))
 	assert.Equal(t, `t:x?="*"`, optional.ToString())
 	assert.True(t, mustParse(t, optional.ToString()).Equals(optional))
 
@@ -2419,6 +2421,85 @@ func Test7223_UrnReadBackFromItsHandle(t *testing.T) {
 		assert.Equal(t, urn.AllTags(), back.AllTags(), text)
 		assert.True(t, back.Equals(urn), text)
 	}
+}
+
+// TEST7224: Each set form parses to the set it writes and prints canonically — values once,
+// in increasing order, `!` last — reading back as itself; the qualifier aliases write the same sets.
+func Test7224_SetFormsParseAndPrint(t *testing.T) {
+	for _, tc := range []struct {
+		text       string
+		constraint Constraint
+		printed    string
+	}{
+		{"t:x=b|a", OneOf([]string{"a", "b"}, false), "t:x=a|b"},
+		{"t:x!=b|a", NoneOf([]string{"a", "b"}, false), "t:x!=a|b"},
+		{"t:x?=b|a", NoneOf([]string{"a", "b"}, true), "t:x?=a|b"},
+		{"t:x=b|!|a", OneOf([]string{"a", "b"}, true), "t:x=a|b|!"},
+		{"t:x=a|!", OneOf([]string{"a"}, true), "t:x=a|!"},
+		{`t:x="a|b"|c`, OneOf([]string{"a|b", "c"}, false), `t:x="a|b"|c`},
+		{"t:!x=a|b", NoneOf([]string{"a", "b"}, false), "t:x!=a|b"},
+		{"t:?x=a|b", NoneOf([]string{"a", "b"}, true), "t:x?=a|b"},
+	} {
+		urn := mustParse(t, tc.text)
+		assert.Equal(t, tc.constraint, urn.Constraint("x"), tc.text)
+		assert.Equal(t, tc.printed, urn.ToString(), tc.text)
+		assert.True(t, mustParse(t, tc.printed).Equals(urn), tc.printed)
+	}
+	// One value is the single form it always was.
+	assert.Equal(t, Exact("a"), mustParse(t, "t:x=a").Constraint("x"))
+}
+
+// TEST7225: A set of values refuses a value given twice, an empty member, a bare sigil or
+// qualifier among its values, and `!` under a qualifier; a literal `|` is quoted.
+func Test7225_SetFormsRefused(t *testing.T) {
+	for _, text := range []string{"t:x=a|a", "t:x=a|!|!", "t:x!=a|a"} {
+		_, err := NewTaggedUrnFromString(text)
+		assert.Equal(t, ErrorDuplicateValue, errorCode(t, err), text)
+	}
+	for _, text := range []string{"t:x=a|*", "t:x=a|?", "t:x=?a|b", "t:x=a|!b", "t:x!=a|!", "t:x?=a|!"} {
+		_, err := NewTaggedUrnFromString(text)
+		assert.Equal(t, ErrorInvalidCharacter, errorCode(t, err), text)
+	}
+	for _, text := range []string{"t:x=a|", "t:x=a||b", "t:x=|a", "t:x=!|!"} {
+		_, err := NewTaggedUrnFromString(text)
+		assert.Error(t, err, text)
+	}
+	quoted := mustParse(t, `t:x="a|b"`)
+	assert.Equal(t, Exact("a|b"), quoted.Constraint("x"))
+	assert.Equal(t, `t:x="a|b"`, quoted.ToString())
+}
+
+// TEST7226: The bound of several URNs is exact per key: png and jpeg are bound by
+// ext=jpeg|png, a value and its absence by ext=v|!, and a value and any value by ext.
+func Test7226_BoundIsExactPerKey(t *testing.T) {
+	bound := func(texts ...string) string {
+		urns := make([]*TaggedUrn, 0, len(texts))
+		for _, text := range texts {
+			urns = append(urns, mustParse(t, text))
+		}
+		b, err := LeastUpperBound("media", urns)
+		require.NoError(t, err)
+		return b.ToString()
+	}
+	assert.Equal(t, "media:ext=jpeg|png", bound("media:ext=png", "media:ext=jpeg"))
+	assert.Equal(t, "media:ext=png|!", bound("media:ext=png", "media:!ext"))
+	assert.Equal(t, "media:ext", bound("media:ext=png", "media:ext"))
+	assert.Equal(t, "media:ext=a|b|c", bound("media:ext=a|b", "media:ext=b|c"))
+	assert.Equal(t, "media:ext", bound("media:ext!=a", "media:ext=a"))
+}
+
+// TEST7227: A set scores by what it allows — two or more values 3, absence and some
+// values 1 — and narrowing never lowers a score, though two on one chain can tie.
+func Test7227_SetScores(t *testing.T) {
+	score := func(text string) int { return mustParse(t, text).Specificity() }
+	assert.Equal(t, 3, score("t:x=a|b"))
+	assert.Equal(t, 3, score("t:x!=a|b"))
+	assert.Equal(t, 1, score("t:x?=a|b"))
+	assert.Equal(t, 1, score("t:x=a|!"))
+	assert.Equal(t, 3, score("t:x=a|b|c"))
+	assert.GreaterOrEqual(t, score("t:x=a|b"), score("t:x"))
+	mn, e, pnv, mha, anv := mustParse(t, "t:x=a|b;y=a|!;z").SpecificityTuple()
+	assert.Equal(t, [5]int{0, 0, 1, 1, 1}, [5]int{mn, e, pnv, mha, anv})
 }
 
 // TEST7210: A written tag lets its key be absent exactly when it is !k, ?k or k?=v;
