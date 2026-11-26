@@ -1320,6 +1320,11 @@ func Test0068_ValuelessTagMatching(t *testing.T) {
 	// "whatever the pattern wants" made `ext` and `ext=pdf` equivalent and
 	// refinement non-transitive; refinement is inclusion of what each form
 	// allows (tagged-urn formal, `tagMatch_iff_allows`).
+	//
+	// It is kept so this path is not taken again: with `ext` equivalent to both
+	// `ext=pdf` and `ext=docx`, equivalence was not transitive, and alias lookup and
+	// stream matching, which use it as "the same tag set", matched one for the other
+	// (tagged-urn formal, marker_is_not_exact).
 	urn, err := NewTaggedUrnFromString("cap:generate;ext")
 	require.NoError(t, err)
 
